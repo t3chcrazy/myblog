@@ -7,6 +7,9 @@ export default function Home() {
   const posts = getAllPosts();
   const [frontPageLead, ...rest] = posts;
   const secondary = rest.slice(0, 3);
+  const frontPageSlugs = new Set(
+    [frontPageLead, ...secondary].filter(Boolean).map((post) => post!.slug)
+  );
 
   return (
     <div className="mx-auto max-w-5xl px-6 pt-10 pb-24">
@@ -35,7 +38,9 @@ export default function Home() {
 
       {CATEGORIES.map((category, i) => {
         const categoryPosts = posts
-          .filter((post) => post.Category === category)
+          .filter(
+            (post) => post.Category === category && !frontPageSlugs.has(post.slug)
+          )
           .slice(0, 4);
 
         return (
