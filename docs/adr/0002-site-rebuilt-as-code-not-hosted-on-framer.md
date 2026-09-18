@@ -1,0 +1,3 @@
+# Site rebuilt as custom code, Framer used only as a design reference
+
+The Framer project (newspaper-style layout) is used purely as a visual reference, extracted via the `framer` skill for its layout, color, type, and component structure. The actual site is rebuilt as custom code (Next.js, deployed on Vercel) rather than published and hosted through Framer directly. This follows from [ADR 0001](./0001-git-based-content-store-not-framer-cms.md): since Framer CMS can't be read externally, hosting the site on Framer would force content to live in Framer too, which we've ruled out. Rebuilding as code also gives full control over the git-based publish flow (PRs triggering a real deploy) and avoids Framer's hosting/subscription costs.
