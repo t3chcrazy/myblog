@@ -31,7 +31,7 @@ export function Masthead() {
           href="/"
           className="inline-block font-[family-name:var(--font-headline)] text-[length:var(--font-size-nameplate)] font-normal tracking-[-0.02em] leading-none text-ink"
         >
-          The Weekly Build
+          Auxesis
         </Link>
         <p className="mt-1 text-[length:var(--font-size-small)] uppercase tracking-[0.3em] text-charcoal">
           Web &middot; Mobile &middot; Backend &middot; AI

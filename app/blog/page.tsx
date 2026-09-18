@@ -6,7 +6,7 @@ import { EmptyState } from "@/components/EmptyState";
 
 export const metadata: Metadata = {
   title: "All posts",
-  description: "Every post from The Weekly Build, newest first.",
+  description: "Every post from Auxesis, newest first.",
 };
 
 export default function BlogIndex() {

@@ -6,8 +6,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "The Weekly Build",
-    template: "%s | The Weekly Build",
+    default: "Auxesis",
+    template: "%s | Auxesis",
   },
   description:
     "An AI-written, AI-maintained weekly blog covering Web, Mobile, Backend, and AI development.",

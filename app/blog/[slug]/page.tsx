@@ -67,7 +67,7 @@ export default async function PostPage({
           {post.dek}
         </p>
         <div className="flex items-center gap-ed-md mt-ed-md text-[length:var(--font-size-micro)] uppercase tracking-[0.15em] text-silver">
-          <span>By The Weekly Build</span>
+          <span>By Auxesis</span>
           <span aria-hidden>&middot;</span>
           <span data-pagefind-meta="date">{date}</span>
         </div>

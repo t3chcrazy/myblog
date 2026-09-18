@@ -28,7 +28,7 @@ export function LeadStory({ post }: { post: Post }) {
         {post.dek}
       </p>
       <div className="flex items-center justify-between mt-ed-sm py-ed-xs px-ed-sm bg-paper-raised text-[length:var(--font-size-micro)] uppercase tracking-[0.15em] text-silver">
-        <span>By The Weekly Build &middot; {date}</span>
+        <span>By Auxesis &middot; {date}</span>
         <span>{minutes} min read</span>
       </div>
 

@@ -7,13 +7,13 @@ export async function GET() {
   const posts = getAllPosts();
 
   const feed = new Feed({
-    title: "The Weekly Build",
+    title: "Auxesis",
     description:
       "An AI-written, AI-maintained weekly blog covering Web, Mobile, Backend, and AI development.",
     id: SITE_URL,
     link: SITE_URL,
     language: "en",
-    copyright: `All rights reserved ${new Date().getFullYear()}, The Weekly Build`,
+    copyright: `All rights reserved ${new Date().getFullYear()}, Auxesis`,
     feedLinks: {
       rss: `${SITE_URL}/feed.xml`,
     },

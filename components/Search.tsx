@@ -167,7 +167,7 @@ export function Search() {
             <div className="flex items-center justify-between px-ed-md py-ed-sm border-b border-ink bg-paper-raised">
               <div>
                 <span className="block text-[length:var(--font-size-small)] uppercase tracking-[0.15em] text-ink font-semibold">
-                  The Weekly Build &middot; Archival Index
+                  Auxesis &middot; Archival Index
                 </span>
                 <span className="block text-[length:var(--font-size-micro)] uppercase tracking-wide text-silver">
                   Indexed via Pagefind &middot; searched locally, no server round-trip

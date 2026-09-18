@@ -22,7 +22,7 @@ export async function generateMetadata({
 
   return {
     title: resolved,
-    description: `All ${resolved} posts from The Weekly Build.`,
+    description: `All ${resolved} posts from Auxesis.`,
   };
 }
 
