@@ -57,13 +57,12 @@ export function Masthead() {
               </Link>
             </span>
           ))}
-          <span className="mx-ed-md text-hairline">|</span>
-          <Search />
         </nav>
       </div>
       <div className="mx-auto max-w-[1240px] px-gutter">
         <div className="h-px bg-hairline" />
       </div>
+      <Search />
     </header>
   );
 }

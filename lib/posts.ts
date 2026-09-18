@@ -1,9 +1,10 @@
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
+import { CATEGORIES, type Category } from "@/lib/categories";
 
-export const CATEGORIES = ["Web", "Mobile", "Backend", "AI"] as const;
-export type Category = (typeof CATEGORIES)[number];
+export { CATEGORIES };
+export type { Category };
 
 export type PostFrontmatter = {
   title: string;

@@ -50,7 +50,11 @@ export default async function PostPage({
 
   return (
     <article className="mx-auto max-w-2xl px-gutter pt-ed-lg pb-ed-xl">
-      <p className="text-[length:var(--font-size-small)] uppercase tracking-[0.15em] text-accent-ink font-semibold">
+      <p
+        className="text-[length:var(--font-size-small)] uppercase tracking-[0.15em] text-accent-ink font-semibold"
+        data-pagefind-filter="category"
+        data-pagefind-meta="category"
+      >
         {post.Category}
       </p>
       <h1 className="font-[family-name:var(--font-headline)] text-[length:var(--font-size-h1)] font-normal text-ink mt-ed-sm leading-[1.1] tracking-[-0.015em]">
@@ -62,7 +66,7 @@ export default async function PostPage({
       <div className="flex items-center gap-ed-md mt-ed-md text-[length:var(--font-size-micro)] uppercase tracking-[0.15em] text-silver">
         <span>By The Weekly Build</span>
         <span aria-hidden>&middot;</span>
-        <span>{date}</span>
+        <span data-pagefind-meta="date">{date}</span>
       </div>
       <div className="h-[2px] bg-ink mt-ed-lg" />
       <div className="h-px bg-ink mt-[3px] mb-ed-xl" />
