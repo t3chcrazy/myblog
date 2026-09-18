@@ -11,6 +11,7 @@ Weekly pipeline's source of topics. See [decision](.scratch/wayfinder/tickets/00
 
 ## Topics
 
+- [x] Tailwind v4's CSS-first config, and why this blog skips tailwind.config.js
 - [ ] React Server Components: what actually runs where
 - [ ] Structured outputs and tool calling in modern LLM APIs
 - [ ] Edge functions vs. serverless: picking a deploy target for a Next.js app

@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@theme {
+  /* Custom breakpoints (Tailwind v4 CSS-first) */
+  --breakpoint-tablet: 810px;
+  --breakpoint-desktop: 1200px;
+
+  /* Near-grayscale palette + one accent (Warm Beige), per ticket 0004 */
+  --color-ink: #171412;
+  --color-charcoal: #3a3532;
+  --color-silver: #8a8480;
+  --color-hairline: #ddd8d2;
+  --color-paper: #ffffff;
+  --color-accent: #f0bf75;
+
+  /* Font families, wired to next/font variables in app/layout.tsx */
+  --font-headline: var(--font-nanum-myeongjo), Georgia, serif;
+  --font-body: var(--font-switzer), Helvetica, Arial, sans-serif;
+
+  /* Named type scale (mobile-first base values) */
+  --font-size-small: 0.8125rem;
+  --font-size-body: 1.0625rem;
+  --font-size-lead: 1.25rem;
+  --font-size-h3: 1.5rem;
+  --font-size-h2: 2rem;
+  --font-size-h1: 2.75rem;
+}
+
+/* Type scale escalation — @theme values must stay top-level in Tailwind v4,
+   so the newspaper's larger-on-bigger-screens headline behavior is layered
+   on with plain @media blocks reassigning the same custom properties. */
+@media (min-width: 810px) {
+  :root {
+    --font-size-body: 1.125rem;
+    --font-size-lead: 1.375rem;
+    --font-size-h3: 1.75rem;
+    --font-size-h2: 2.5rem;
+    --font-size-h1: 3.5rem;
+  }
+}
+
+@media (min-width: 1200px) {
+  :root {
+    --font-size-body: 1.1875rem;
+    --font-size-lead: 1.5rem;
+    --font-size-h3: 2rem;
+    --font-size-h2: 3rem;
+    --font-size-h1: 4.5rem;
+  }
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}

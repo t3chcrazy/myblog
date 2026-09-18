@@ -1,0 +1,73 @@
+---
+title: "Tailwind v4's CSS-first config, and why this blog skips tailwind.config.js"
+slug: tailwind-v4-css-first-config
+date: "2026-09-18"
+Category: Web
+dek: "Tailwind v4 replaced the JS theme object with a CSS directive. Here's what actually changed, and why this newspaper-style rebuild leans on it instead of the old config file."
+tags: ["tailwind", "nextjs", "css", "design-systems"]
+---
+
+If you learned Tailwind on `tailwind.config.js`, version 4 will feel like the ground moved. The theme object — the `colors`, `fontFamily`, `screens` keys you used to extend in JavaScript — isn't the primary configuration path anymore. This site's own design tokens (a near-grayscale palette, two font families, a type scale that steps up at two custom breakpoints) are defined without ever touching a `tailwind.config.js` file, and it's worth explaining why that's the recommended path now, not just a stylistic choice.
+
+## The docs steer you here on both sides
+
+Neither Next.js nor Tailwind flatly say "the old way is banned." But both quietly make CSS-first the default in 2026.
+
+[Next.js's current styling docs](https://nextjs.org/docs/app/getting-started/css) list Tailwind CSS, CSS Modules, Sass, and CSS-in-JS as options with no explicit ranking — then immediately undercut that neutrality. Tailwind is the only one with a full first-party install walkthrough baked into the main flow, and it's what every `create-next-app` default project ships with. The docs' own recommendation language is blunt:
+
+> "Use Tailwind CSS for most styling needs as it covers common design patterns with utility classes. Use CSS Modules for component-specific styles when Tailwind utilities aren't sufficient."
+
+Tailwind's own [Theme variables docs](https://tailwindcss.com/docs/theme) go further, describing `@theme` not as an alternative to the old config but as the mechanism that makes theme variables *do more* than plain CSS variables — they also generate the utility classes you write in markup:
+
+> "Theme variables aren't just CSS variables — they also instruct Tailwind to create new utility classes that you can use in your HTML."
+
+## What `@theme` actually looks like
+
+A custom color, a custom font, and a custom breakpoint are all just CSS custom properties declared inside a `@theme` block, imported once via `@import "tailwindcss"`:
+
+```css
+/* app/globals.css */
+@import "tailwindcss";
+
+@theme {
+  --color-accent: #f0bf75;
+  --font-headline: "Nanum Myeongjo", serif;
+  --breakpoint-tablet: 810px;
+}
+```
+
+That single block gives you `bg-accent`, `font-[family-name:var(--font-headline)]`, and a `tablet:` variant — no separate JS file, no `extend` key to remember, no restart-required config reload during dev.
+
+## The one real constraint
+
+`@theme` values have to stay top-level — you can't nest one inside a media query. Tailwind's docs are explicit about this:
+
+> "Theme variables are also required to be defined top-level and not nested under other selectors or media queries."
+
+That matters the moment you want a token's *value*, not just its presence, to change per breakpoint — exactly the case for a newspaper-style type scale that gets bigger on wider screens. The workaround is simple once you know it: keep the token name in `@theme`, and reassign its value in a plain `@media` block outside the `@theme` block entirely:
+
+```css
+@theme {
+  --font-size-h1: 2.75rem;
+}
+
+@media (min-width: 810px) {
+  :root {
+    --font-size-h1: 3.5rem;
+  }
+}
+```
+
+Any utility built from `--font-size-h1` — or any plain CSS referencing `var(--font-size-h1)` — picks up the new value automatically past the breakpoint, without touching the `@theme` block again.
+
+## Is `tailwind.config.js` actually gone?
+
+No — but it's been demoted. Per [Tailwind's upgrade guide](https://tailwindcss.com/docs/upgrade-guide), JS config files still work, but only via an explicit `@config` directive, and only for backward compatibility:
+
+> "JavaScript config files are still supported for backward compatibility, but they are no longer detected automatically in v4."
+
+Three plugin-level options (`corePlugins`, `safelist`, `separator`) also aren't supported in a v4-loaded JS config at all. That combination — opt-in only, reduced feature surface, explicitly framed as a migration path — is a clear enough signal: for a project starting fresh in 2026, `@theme` in CSS is the primary configuration model, and `tailwind.config.js` is the thing you reach for only if you're carrying over a large v3 setup that can't be ported yet.
+
+## Why it fits this rebuild specifically
+
+This site's whole design system is small on purpose: five grayscale steps, one accent color, two font families, a six-step type scale, two custom breakpoints. Keeping all of it as CSS custom properties in a single `app/globals.css` file means the entire visual identity lives in one place, in the same language the rest of the stylesheet is written in — no JS/CSS context switch to check what a design token resolves to. For a codebase this size, that's not a marginal convenience. It's the whole reason `tailwind.config.js` never got created here in the first place.
