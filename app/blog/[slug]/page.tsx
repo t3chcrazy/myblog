@@ -49,21 +49,24 @@ export default async function PostPage({
   });
 
   return (
-    <article className="mx-auto max-w-2xl px-6 py-12">
-      <p className="text-[length:var(--font-size-small)] uppercase tracking-wide text-accent font-semibold">
+    <article className="mx-auto max-w-2xl px-6 pt-10 pb-24">
+      <p className="text-[length:var(--font-size-small)] uppercase tracking-[0.15em] text-accent-ink font-semibold">
         {post.Category}
       </p>
-      <h1 className="font-[family-name:var(--font-headline)] text-[length:var(--font-size-h1)] font-bold text-ink mt-2">
+      <h1 className="font-[family-name:var(--font-headline)] text-[length:var(--font-size-h1)] font-bold text-ink mt-3 leading-[1.05] tracking-[-0.01em]">
         {post.title}
       </h1>
-      <p className="text-[length:var(--font-size-lead)] text-charcoal mt-4">
+      <p className="text-[length:var(--font-size-lead)] text-charcoal mt-5">
         {post.dek}
       </p>
-      <p className="text-[length:var(--font-size-small)] text-silver mt-4">
-        {date}
-      </p>
-      <hr className="border-hairline my-8" />
-      <div>
+      <div className="flex items-center gap-3 mt-5 text-[length:var(--font-size-micro)] uppercase tracking-[0.15em] text-silver">
+        <span>By The Weekly Build</span>
+        <span aria-hidden>&middot;</span>
+        <span>{date}</span>
+      </div>
+      <div className="h-[3px] bg-ink mt-6" />
+      <div className="h-px bg-ink mt-1 mb-10" />
+      <div className="editorial-body">
         <MDXRemote
           source={post.content}
           components={mdxComponents}
@@ -77,9 +80,9 @@ export default async function PostPage({
           }}
         />
       </div>
-      <hr className="border-hairline my-8" />
-      <p className="text-[length:var(--font-size-small)] text-silver">
-        Tags: {post.tags.join(", ")}
+      <div className="h-px bg-hairline mt-10" />
+      <p className="text-[length:var(--font-size-micro)] uppercase tracking-[0.15em] text-silver mt-6">
+        Filed under: {post.tags.join(", ")}
       </p>
     </article>
   );

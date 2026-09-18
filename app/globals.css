@@ -5,25 +5,30 @@
   --breakpoint-tablet: 810px;
   --breakpoint-desktop: 1200px;
 
-  /* Near-grayscale palette + one accent (Warm Beige), per ticket 0004 */
-  --color-ink: #171412;
-  --color-charcoal: #3a3532;
-  --color-silver: #8a8480;
-  --color-hairline: #ddd8d2;
-  --color-paper: #ffffff;
-  --color-accent: #f0bf75;
+  /* Near-grayscale palette + one accent (Warm Beige), per ticket 0004.
+     Warm-tinted throughout (never cool gray) — newsprint, not paper-white. */
+  --color-ink: #1c1712;
+  --color-charcoal: #453d34;
+  --color-silver: #8d8072;
+  --color-hairline: #d8cdb8;
+  --color-paper: #f4efe3;
+  --color-paper-raised: #ede6d5;
+  --color-accent: #f0bf75; /* Warm Beige, locked per ticket 0004 — used for fills/rules */
+  --color-accent-ink: #96632a; /* darkened same hue, for text/links needing contrast on paper */
 
   /* Font families, wired to next/font variables in app/layout.tsx */
   --font-headline: var(--font-nanum-myeongjo), Georgia, serif;
   --font-body: var(--font-switzer), Helvetica, Arial, sans-serif;
 
   /* Named type scale (mobile-first base values) */
+  --font-size-micro: 0.6875rem;
   --font-size-small: 0.8125rem;
   --font-size-body: 1.0625rem;
   --font-size-lead: 1.25rem;
   --font-size-h3: 1.5rem;
   --font-size-h2: 2rem;
   --font-size-h1: 2.75rem;
+  --font-size-nameplate: 3.25rem;
 }
 
 /* Type scale escalation — @theme values must stay top-level in Tailwind v4,
@@ -36,6 +41,7 @@
     --font-size-h3: 1.75rem;
     --font-size-h2: 2.5rem;
     --font-size-h1: 3.5rem;
+    --font-size-nameplate: 4.5rem;
   }
 }
 
@@ -46,11 +52,48 @@
     --font-size-h3: 2rem;
     --font-size-h2: 3rem;
     --font-size-h1: 4.5rem;
+    --font-size-nameplate: 5.5rem;
   }
 }
 
 body {
-  background: var(--color-paper);
+  background-color: var(--color-paper);
   color: var(--color-ink);
   font-family: var(--font-body);
+  /* Faint fixed grain so the paper reads as newsprint, not a flat digital fill. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+/* Editorial article column: justified, hyphenated, with a print-style drop
+   cap on the opening paragraph — the devices that make a body of text read
+   as a printed column rather than a web page. */
+.editorial-body p:first-of-type {
+  text-align: justify;
+  hyphens: auto;
+}
+
+.editorial-body p:first-of-type::first-letter {
+  font-family: var(--font-headline);
+  font-size: 4.2rem;
+  line-height: 0.78;
+  font-weight: 700;
+  float: left;
+  padding-right: 0.5rem;
+  padding-top: 0.25rem;
+  color: var(--color-ink);
+}
+
+.editorial-body p {
+  text-align: justify;
+  hyphens: auto;
 }

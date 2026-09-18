@@ -34,18 +34,23 @@ export default async function CategoryPage({
   const posts = getPostsByCategory(resolved);
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-12">
-      <h1 className="font-[family-name:var(--font-headline)] text-[length:var(--font-size-h1)] font-bold text-ink mb-10">
+    <div className="mx-auto max-w-3xl px-6 pt-10 pb-24">
+      <p className="text-[length:var(--font-size-micro)] uppercase tracking-[0.2em] text-silver">
+        Section
+      </p>
+      <h1 className="font-[family-name:var(--font-headline)] text-[length:var(--font-size-h1)] font-bold text-ink tracking-[-0.01em] mt-1">
         {resolved}
       </h1>
+      <div className="h-px bg-ink mt-4 mb-2" />
       {posts.length === 0 ? (
-        <p className="text-[length:var(--font-size-body)] text-charcoal">
-          No posts yet in this category.
+        <p className="text-[length:var(--font-size-body)] text-charcoal mt-6">
+          No posts yet in this section — check back after the next weekly
+          build.
         </p>
       ) : (
-        <div className="grid gap-10 sm:grid-cols-2 tablet:grid-cols-3">
+        <div>
           {posts.map((post) => (
-            <TeaserCard key={post.slug} post={post} />
+            <TeaserCard key={post.slug} post={post} variant="row" />
           ))}
         </div>
       )}

@@ -20,11 +20,11 @@ export const mdxComponents: MDXComponents = {
     />
   ),
   a: (props) => (
-    <a className="text-accent underline underline-offset-2" {...props} />
+    <a className="text-accent-ink underline underline-offset-2" {...props} />
   ),
   blockquote: (props) => (
     <blockquote
-      className="border-l-2 border-accent pl-4 italic text-charcoal my-6"
+      className="border-l-2 border-accent pl-5 my-8 font-[family-name:var(--font-headline)] text-[length:var(--font-size-lead)] italic text-charcoal"
       {...props}
     />
   ),

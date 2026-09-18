@@ -11,23 +11,32 @@ export function CategorySection({
 }) {
   if (posts.length === 0) return null;
 
+  const [lead, ...rest] = posts;
+
   return (
     <section>
-      <div className="flex items-baseline justify-between border-b border-hairline pb-2">
-        <h2 className="font-[family-name:var(--font-headline)] text-[length:var(--font-size-h2)] font-bold text-ink">
+      <div className="flex items-baseline justify-between">
+        <h2 className="font-[family-name:var(--font-headline)] text-[length:var(--font-size-h2)] font-bold text-ink tracking-[-0.01em]">
           {category}
         </h2>
         <Link
           href={`/categories/${category.toLowerCase()}`}
-          className="text-[length:var(--font-size-small)] uppercase tracking-wide text-charcoal hover:text-accent"
+          className="text-[length:var(--font-size-micro)] uppercase tracking-[0.15em] text-charcoal hover:text-accent-ink"
         >
-          View all
+          All {category} &rarr;
         </Link>
       </div>
-      <div className="grid gap-8 mt-6 sm:grid-cols-2 tablet:grid-cols-3">
-        {posts.map((post) => (
-          <TeaserCard key={post.slug} post={post} />
-        ))}
+      <div className="h-px bg-ink mt-3" />
+
+      <div className="grid gap-10 tablet:grid-cols-[1.3fr_1fr] mt-8">
+        <TeaserCard post={lead} variant="lead" />
+        {rest.length > 0 && (
+          <div className="tablet:border-l tablet:border-hairline tablet:pl-8">
+            {rest.map((post) => (
+              <TeaserCard key={post.slug} post={post} variant="row" />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
