@@ -37,8 +37,6 @@ A full technical spec — site rebuild (design + Next.js) + content pipeline + w
 
 ## Not yet specified
 
-- The actual routine config (name, instructions/prompt, trigger schedule) — prerequisites are done ([0008](../wayfinder/tickets/0008-routines-setup.md)), but the prompt depends on `backlog.md` and `STYLE.md` existing in-repo first, and neither is written yet.
-
 - Confirm Gemini's actual free-tier image-generation rate limit live in AI Studio before the pipeline depends on it (docs alone didn't pin this down; reported cut Dec 2025).
 - The source Framer template also has `/author`, `/categories`, `/legal-pages`, `/subscribe` page types beyond the core blog index/detail pages — in scope as site chrome, but not yet sharp enough to ticket (which of these does v1 actually need vs. defer).
 - Analytics: whether/how to track readership (not discussed; in scope for the site, not yet sharp enough to ticket).

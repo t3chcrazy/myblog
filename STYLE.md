@@ -22,7 +22,17 @@ Governs every weekly post the pipeline drafts. See [decision](.scratch/wayfinder
 
 ## Structure
 
-- Frontmatter: `title`, `slug`, `date`, `Category` (Web/Mobile/Backend/AI), `dek`, `tags`.
+- Frontmatter: `title`, `slug`, `date`, `Category` (Web/Mobile/Backend/AI), `dek`, `tags`, `banner`, `bannerAlt`.
 - Open with the dek's angle stated plainly in the first paragraph — no throat-clearing intro.
 - Section headings for distinct sub-topics; avoid a single unbroken wall of text.
 - Close with a concrete takeaway, not a generic summary restatement.
+
+## Banner image
+
+Every post gets one banner/thumbnail image, shown on the front page and in category/archive listings:
+
+- Generate via Gemini's image model ("Nano Banana"), per [ticket 0001](.scratch/wayfinder/tickets/0001-image-gen-model.md). Requires `GEMINI_API_KEY` in the environment.
+- One conceptual editorial illustration per post (not a literal screenshot, not stock-photo-style) — 16:9 aspect ratio.
+- Save as `public/banners/<slug>.png`.
+- Reference it in frontmatter: `banner: "/banners/<slug>.png"` and a one-sentence `bannerAlt` describing the image for accessibility.
+- If image generation fails or is unavailable, omit `banner`/`bannerAlt` entirely rather than blocking the post — the site renders text-only listings gracefully without a banner.

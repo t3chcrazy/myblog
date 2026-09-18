@@ -12,6 +12,9 @@ export type PostFrontmatter = {
   Category: Category;
   dek: string;
   tags: string[];
+  /** Path under /public, e.g. "/banners/my-post.png". Optional — not every post has one. */
+  banner?: string;
+  bannerAlt?: string;
 };
 
 export type Post = PostFrontmatter & {
