@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { CATEGORIES } from "@/lib/posts";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { Search } from "@/components/Search";
 
 function today() {
   return new Date().toLocaleDateString("en-US", {
@@ -13,18 +15,21 @@ function today() {
 export function Masthead() {
   return (
     <header className="bg-paper">
-      <div className="mx-auto max-w-5xl px-6 pt-6">
+      <div className="mx-auto max-w-[1240px] px-gutter pt-ed-md">
         {/* Dateline strip — the small print above the nameplate on a real front page */}
         <div className="flex items-baseline justify-between text-[length:var(--font-size-micro)] uppercase tracking-[0.15em] text-charcoal">
           <span>{today()}</span>
-          <span>Vol. I — Weekly Edition</span>
+          <span className="flex items-center gap-ed-md">
+            <span>Vol. I — Weekly Edition</span>
+            <ThemeToggle />
+          </span>
         </div>
       </div>
 
-      <div className="mx-auto max-w-5xl px-6 pt-3 pb-4 text-center">
+      <div className="mx-auto max-w-[1240px] px-gutter pt-ed-sm pb-ed-md text-center">
         <Link
           href="/"
-          className="inline-block font-[family-name:var(--font-headline)] text-[length:var(--font-size-nameplate)] font-bold tracking-[-0.02em] text-ink"
+          className="inline-block font-[family-name:var(--font-headline)] text-[length:var(--font-size-nameplate)] font-normal tracking-[-0.02em] leading-none text-ink"
         >
           The Weekly Build
         </Link>
@@ -33,28 +38,30 @@ export function Masthead() {
         </p>
       </div>
 
-      {/* A newspaper banner rule: one heavy line, one hairline beneath it. */}
-      <div className="mx-auto max-w-5xl px-6">
-        <div className="h-[3px] bg-ink" />
-        <div className="h-px bg-ink mt-1" />
+      {/* The broadsheet double rule: one heavy line, one hairline beneath it. */}
+      <div className="mx-auto max-w-[1240px] px-gutter">
+        <div className="h-[2px] bg-ink" />
+        <div className="h-px bg-ink mt-[3px]" />
       </div>
 
-      <div className="mx-auto max-w-5xl px-6">
+      <div className="mx-auto max-w-[1240px] px-gutter">
         <nav className="flex flex-wrap items-center justify-center text-[length:var(--font-size-small)] uppercase tracking-wide text-charcoal">
           {[...CATEGORIES.map((c) => ({ label: c, href: `/categories/${c.toLowerCase()}` })),
             { label: "All posts", href: "/blog" },
             { label: "About", href: "/author" },
           ].map((item, i) => (
             <span key={item.href} className="flex items-center">
-              {i > 0 && <span className="mx-4 text-hairline">|</span>}
-              <Link href={item.href} className="py-3 hover:text-accent-ink">
+              {i > 0 && <span className="mx-ed-md text-hairline">|</span>}
+              <Link href={item.href} className="py-ed-sm hover:text-accent-ink">
                 {item.label}
               </Link>
             </span>
           ))}
+          <span className="mx-ed-md text-hairline">|</span>
+          <Search />
         </nav>
       </div>
-      <div className="mx-auto max-w-5xl px-6">
+      <div className="mx-auto max-w-[1240px] px-gutter">
         <div className="h-px bg-hairline" />
       </div>
     </header>

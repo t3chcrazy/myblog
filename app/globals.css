@@ -1,65 +1,95 @@
 @import "tailwindcss";
 
+/* Tailwind v4 defaults dark: to prefers-color-scheme; this site toggles a
+   `.dark` class on <html> instead (see app/layout.tsx's init script and
+   the Masthead's Edition toggle), so dark: must key off that class. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
-  /* Custom breakpoints (Tailwind v4 CSS-first) */
-  --breakpoint-tablet: 810px;
+  /* Breakpoints matching the Stitch "Broadsheet Letterpress" grid spec:
+     mobile <768, tablet 768-1199, desktop 1200+. */
+  --breakpoint-tablet: 768px;
   --breakpoint-desktop: 1200px;
 
-  /* Near-grayscale palette + one accent (Warm Beige), per ticket 0004.
-     Warm-tinted throughout (never cool gray) — newsprint, not paper-white. */
-  --color-ink: #1c1712;
-  --color-charcoal: #453d34;
+  /* Light theme palette — exact values from the Stitch design system. */
+  --color-ink: #221d17;
+  --color-charcoal: #4a443b;
+  --color-silver: #7d766e;
+  --color-hairline: #dcd4c4;
+  --color-paper: #faf6ee;
+  --color-paper-raised: #f1ede6;
+  --color-accent: #e8b978;
+  --color-accent-ink: #96632a;
+
+  /* Font families, wired to next/font variables in app/layout.tsx. */
+  --font-headline: var(--font-newsreader), Georgia, serif;
+  --font-body: var(--font-plus-jakarta-sans), Helvetica, Arial, sans-serif;
+
+  /* Spacing scale, matching the Stitch design system's named tokens.
+     Prefixed "ed-" (editorial) to avoid colliding with Tailwind's own
+     built-in xs/sm/md/lg/xl scale used by max-w-*, text-*, rounded-*, etc —
+     a bare --spacing-xl here would silently override max-w-xl site-wide. */
+  --spacing-ed-xs: 0.25rem;
+  --spacing-ed-sm: 0.5rem;
+  --spacing-ed-md: 1rem;
+  --spacing-ed-lg: 1.5rem;
+  --spacing-ed-xl: 2.5rem;
+  --spacing-gutter: 1.5rem;
+  --spacing-margin: 2rem;
+
+  /* Named type scale — mobile-first base values (mirrors Stitch's
+     "-mobile" tokens where one exists; body/label/dateline/pull-quote
+     have no separate mobile size in the source system). */
+  --font-size-micro: 0.6875rem; /* dateline: 11px, fixed at all sizes */
+  --font-size-small: 0.75rem; /* label-caps: 12px, fixed at all sizes */
+  --font-size-body: 1.125rem; /* body-lg: 18px, fixed at all sizes */
+  --font-size-lead: 1.1875rem; /* subhead: 19px, fixed at all sizes */
+  --font-size-h3: 1.375rem; /* headline-sm: 22px, fixed at all sizes */
+  --font-size-h2: 1.75rem; /* headline-md: 28px, fixed at all sizes */
+  --font-size-h1: 1.75rem; /* headline-lg-mobile: 28px, escalates below */
+  --font-size-nameplate: 2.25rem; /* headline-xl-mobile: 36px, escalates below */
+  --font-size-pullquote: 1.625rem; /* pull-quote: 26px, fixed at all sizes */
+}
+
+/* Zero border-radius everywhere — the Stitch system is strictly
+   rectilinear; curves read as digital-native, not letterpress. */
+* {
+  border-radius: 0 !important;
+}
+
+/* Type scale escalation at the tablet breakpoint (768px) — matches the
+   Stitch system's two-tier mobile/desktop headline sizes exactly; sizes
+   hold steady from 768px through 1200px+ (no further desktop escalation
+   in the source system). */
+@media (min-width: 768px) {
+  :root {
+    --font-size-h1: 2.5rem; /* headline-lg: 40px */
+    --font-size-nameplate: 3.5rem; /* headline-xl: 56px */
+  }
+}
+
+:root {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+  /* Dark theme palette — exact values from the Stitch design system. */
+  --color-ink: #f2ecdd;
+  --color-charcoal: #a8a095;
   --color-silver: #8d8072;
-  --color-hairline: #d8cdb8;
-  --color-paper: #f4efe3;
-  --color-paper-raised: #ede6d5;
-  --color-accent: #f0bf75; /* Warm Beige, locked per ticket 0004 — used for fills/rules */
-  --color-accent-ink: #96632a; /* darkened same hue, for text/links needing contrast on paper */
-
-  /* Font families, wired to next/font variables in app/layout.tsx */
-  --font-headline: var(--font-nanum-myeongjo), Georgia, serif;
-  --font-body: var(--font-switzer), Helvetica, Arial, sans-serif;
-
-  /* Named type scale (mobile-first base values) */
-  --font-size-micro: 0.6875rem;
-  --font-size-small: 0.8125rem;
-  --font-size-body: 1.0625rem;
-  --font-size-lead: 1.25rem;
-  --font-size-h3: 1.5rem;
-  --font-size-h2: 2rem;
-  --font-size-h1: 2.75rem;
-  --font-size-nameplate: 3.25rem;
-}
-
-/* Type scale escalation — @theme values must stay top-level in Tailwind v4,
-   so the newspaper's larger-on-bigger-screens headline behavior is layered
-   on with plain @media blocks reassigning the same custom properties. */
-@media (min-width: 810px) {
-  :root {
-    --font-size-body: 1.125rem;
-    --font-size-lead: 1.375rem;
-    --font-size-h3: 1.75rem;
-    --font-size-h2: 2.5rem;
-    --font-size-h1: 3.5rem;
-    --font-size-nameplate: 4.5rem;
-  }
-}
-
-@media (min-width: 1200px) {
-  :root {
-    --font-size-body: 1.1875rem;
-    --font-size-lead: 1.5rem;
-    --font-size-h3: 2rem;
-    --font-size-h2: 3rem;
-    --font-size-h1: 4.5rem;
-    --font-size-nameplate: 5.5rem;
-  }
+  --color-hairline: #362f27;
+  --color-paper: #1c1712;
+  --color-paper-raised: #221d17;
+  --color-accent: #e8b978;
+  --color-accent-ink: #e8b978;
 }
 
 body {
   background-color: var(--color-paper);
   color: var(--color-ink);
   font-family: var(--font-body);
+  transition: background-color 250ms ease, color 250ms ease;
   /* Faint fixed grain so the paper reads as newsprint, not a flat digital fill. */
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
 }
@@ -86,7 +116,7 @@ p {
   font-family: var(--font-headline);
   font-size: 4.2rem;
   line-height: 0.78;
-  font-weight: 700;
+  font-weight: 600;
   float: left;
   padding-right: 0.5rem;
   padding-top: 0.25rem;
@@ -96,4 +126,12 @@ p {
 .editorial-body p {
   text-align: justify;
   hyphens: auto;
+}
+
+/* Fleuron dingbat used as a section divider / end-of-story mark, per the
+   Stitch system's "Decorative Ornaments" spec. */
+.fleuron {
+  font-family: var(--font-headline);
+  color: var(--color-accent-ink);
+  user-select: none;
 }

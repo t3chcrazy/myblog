@@ -49,23 +49,23 @@ export default async function PostPage({
   });
 
   return (
-    <article className="mx-auto max-w-2xl px-6 pt-10 pb-24">
+    <article className="mx-auto max-w-2xl px-gutter pt-ed-lg pb-ed-xl">
       <p className="text-[length:var(--font-size-small)] uppercase tracking-[0.15em] text-accent-ink font-semibold">
         {post.Category}
       </p>
-      <h1 className="font-[family-name:var(--font-headline)] text-[length:var(--font-size-h1)] font-bold text-ink mt-3 leading-[1.05] tracking-[-0.01em]">
+      <h1 className="font-[family-name:var(--font-headline)] text-[length:var(--font-size-h1)] font-normal text-ink mt-ed-sm leading-[1.1] tracking-[-0.015em]">
         {post.title}
       </h1>
-      <p className="text-[length:var(--font-size-lead)] text-charcoal mt-5">
+      <p className="font-[family-name:var(--font-headline)] italic text-[length:var(--font-size-lead)] text-charcoal mt-ed-md">
         {post.dek}
       </p>
-      <div className="flex items-center gap-3 mt-5 text-[length:var(--font-size-micro)] uppercase tracking-[0.15em] text-silver">
+      <div className="flex items-center gap-ed-md mt-ed-md text-[length:var(--font-size-micro)] uppercase tracking-[0.15em] text-silver">
         <span>By The Weekly Build</span>
         <span aria-hidden>&middot;</span>
         <span>{date}</span>
       </div>
-      <div className="h-[3px] bg-ink mt-6" />
-      <div className="h-px bg-ink mt-1 mb-10" />
+      <div className="h-[2px] bg-ink mt-ed-lg" />
+      <div className="h-px bg-ink mt-[3px] mb-ed-xl" />
       <div className="editorial-body">
         <MDXRemote
           source={post.content}
@@ -80,8 +80,11 @@ export default async function PostPage({
           }}
         />
       </div>
-      <div className="h-px bg-hairline mt-10" />
-      <p className="text-[length:var(--font-size-micro)] uppercase tracking-[0.15em] text-silver mt-6">
+      <div className="flex justify-center my-ed-lg" aria-hidden>
+        <span className="fleuron text-[length:var(--font-size-h3)]">&#10086;</span>
+      </div>
+      <div className="h-px bg-hairline" />
+      <p className="text-[length:var(--font-size-micro)] uppercase tracking-[0.15em] text-silver mt-ed-md">
         Filed under: {post.tags.join(", ")}
       </p>
     </article>

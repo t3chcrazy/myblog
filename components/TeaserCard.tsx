@@ -26,12 +26,12 @@ export function TeaserCard({
     return (
       <Link href={`/blog/${post.slug}`} className="group block">
         {post.banner && (
-          <div className="relative aspect-video w-full overflow-hidden mb-5 bg-paper-raised">
+          <div className="relative aspect-video w-full overflow-hidden mb-ed-lg bg-paper-raised">
             <Image
               src={post.banner}
               alt={post.bannerAlt ?? ""}
               fill
-              sizes="(min-width: 810px) 60vw, 100vw"
+              sizes="(min-width: 768px) 60vw, 100vw"
               className={`object-cover ${PRESS_PHOTO_FILTER}`}
               priority
             />
@@ -40,13 +40,13 @@ export function TeaserCard({
         <p className="text-[length:var(--font-size-small)] uppercase tracking-[0.15em] text-accent-ink font-semibold">
           {post.Category}
         </p>
-        <h3 className="font-[family-name:var(--font-headline)] text-[length:var(--font-size-h1)] font-bold text-ink mt-2 leading-[1.05] tracking-[-0.01em] group-hover:underline decoration-1 underline-offset-4">
+        <h3 className="font-[family-name:var(--font-headline)] text-[length:var(--font-size-h1)] font-normal text-ink mt-ed-sm leading-[1.1] tracking-[-0.015em] group-hover:underline decoration-1 underline-offset-4">
           {post.title}
         </h3>
-        <p className="text-[length:var(--font-size-lead)] text-charcoal mt-4 max-w-xl">
+        <p className="font-[family-name:var(--font-headline)] italic text-[length:var(--font-size-lead)] text-charcoal mt-ed-md max-w-xl">
           {post.dek}
         </p>
-        <p className="text-[length:var(--font-size-micro)] uppercase tracking-[0.15em] text-silver mt-4">
+        <p className="text-[length:var(--font-size-micro)] uppercase tracking-[0.15em] text-silver mt-ed-md">
           {formatDate(post.date)}
         </p>
       </Link>
@@ -56,7 +56,7 @@ export function TeaserCard({
   return (
     <Link
       href={`/blog/${post.slug}`}
-      className="group flex items-baseline gap-4 py-4 border-b border-hairline first:pt-0"
+      className="group flex items-baseline gap-ed-md py-ed-md border-b border-hairline first:pt-0"
     >
       <span className="text-[length:var(--font-size-micro)] uppercase tracking-[0.15em] text-accent-ink font-semibold w-16 shrink-0 self-start mt-1">
         {post.Category}
@@ -73,10 +73,10 @@ export function TeaserCard({
         </span>
       )}
       <span className="min-w-0">
-        <span className="font-[family-name:var(--font-headline)] text-[length:var(--font-size-h3)] font-bold text-ink group-hover:underline decoration-1 underline-offset-4">
+        <span className="font-[family-name:var(--font-headline)] text-[length:var(--font-size-h3)] font-semibold text-ink group-hover:underline decoration-1 underline-offset-4">
           {post.title}
         </span>
-        <span className="block text-[length:var(--font-size-body)] text-charcoal mt-1">
+        <span className="block font-[family-name:var(--font-headline)] italic text-[length:var(--font-size-body)] text-charcoal mt-1">
           {post.dek}
         </span>
       </span>
