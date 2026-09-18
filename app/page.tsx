@@ -1,3 +1,4 @@
+import { ViewTransition } from "react";
 import { CATEGORIES, getAllPosts } from "@/lib/posts";
 import { CategorySection } from "@/components/CategorySection";
 import { LeadStory } from "@/components/LeadStory";
@@ -12,12 +13,14 @@ export default function Home() {
 
   if (!lead) {
     return (
-      <div className="mx-auto max-w-[1240px] px-gutter pt-ed-lg pb-ed-xl">
-        <EmptyState
-          title="Dispatches Pending Typesetting"
-          body="This edition hasn't gone to print yet. Our compositors are gathering dispatches for the upcoming cycle — check back after the next weekly build."
-        />
-      </div>
+      <ViewTransition enter="page-enter" exit="page-exit">
+        <div className="mx-auto max-w-[1240px] px-gutter pt-ed-lg pb-ed-xl">
+          <EmptyState
+            title="Dispatches Pending Typesetting"
+            body="This edition hasn't gone to print yet. Our compositors are gathering dispatches for the upcoming cycle — check back after the next weekly build."
+          />
+        </div>
+      </ViewTransition>
     );
   }
 
@@ -46,6 +49,7 @@ export default function Home() {
         : "tablet:col-span-12";
 
   return (
+    <ViewTransition enter="page-enter" exit="page-exit">
     <div className="mx-auto max-w-[1240px] px-gutter pt-ed-lg pb-ed-xl">
       <div className="grid grid-cols-1 tablet:grid-cols-12 gap-gutter">
         {hasLeft && (
@@ -96,5 +100,6 @@ export default function Home() {
         );
       })}
     </div>
+    </ViewTransition>
   );
 }

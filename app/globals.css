@@ -135,3 +135,59 @@ p {
   color: var(--color-accent-ink);
   user-select: none;
 }
+
+/* View Transitions (https://developer.mozilla.org/en-US/docs/Web/API/View_Transition_API),
+   via React's <ViewTransition> — animates App Router navigations. Kept
+   deliberately calm (fade + a slight rise, no slides/parallax) to match
+   the "peaceful" brief. See each page.tsx for the enter/exit wrapper and
+   components/Masthead.tsx + components/TeaserCard.tsx/LeadStory.tsx/
+   app/blog/[slug]/page.tsx for the banner-image shared-element morph. */
+::view-transition {
+  /* Without this, the transition overlay eats clicks mid-animation. */
+  pointer-events: none;
+}
+
+::view-transition-old(.page-exit) {
+  animation: 120ms ease-in both page-fade-out;
+}
+::view-transition-new(.page-enter) {
+  animation:
+    220ms ease-out 60ms both page-fade-in,
+    260ms ease-out both page-rise;
+}
+
+@keyframes page-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes page-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes page-rise {
+  from {
+    translate: 0 8px;
+  }
+}
+
+/* The masthead is outside each page's ViewTransition boundary already,
+   but anchor it explicitly so it never participates in a transition —
+   a moving/crossfading header would break the reader's sense of place. */
+::view-transition-group(site-header) {
+  animation: none;
+}
+::view-transition-old(site-header),
+::view-transition-new(site-header) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}

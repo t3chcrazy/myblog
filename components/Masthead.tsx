@@ -14,7 +14,7 @@ function today() {
 
 export function Masthead() {
   return (
-    <header className="bg-paper">
+    <header className="bg-paper" style={{ viewTransitionName: "site-header" }}>
       <div className="mx-auto max-w-[1240px] px-gutter pt-ed-md">
         {/* Dateline strip — the small print above the nameplate on a real front page */}
         <div className="flex items-baseline justify-between text-[length:var(--font-size-micro)] uppercase tracking-[0.15em] text-charcoal">

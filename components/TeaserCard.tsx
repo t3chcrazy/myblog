@@ -1,3 +1,4 @@
+import { ViewTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { Post } from "@/lib/posts";
@@ -26,16 +27,18 @@ export function TeaserCard({
     return (
       <Link href={`/blog/${post.slug}`} className="group block">
         {post.banner && (
-          <div className="relative aspect-video w-full overflow-hidden mb-ed-lg bg-paper-raised">
-            <Image
-              src={post.banner}
-              alt={post.bannerAlt ?? ""}
-              fill
-              sizes="(min-width: 768px) 60vw, 100vw"
-              className={`object-cover ${PRESS_PHOTO_FILTER}`}
-              priority
-            />
-          </div>
+          <ViewTransition name={`post-banner-${post.slug}`}>
+            <div className="relative aspect-video w-full overflow-hidden mb-ed-lg bg-paper-raised">
+              <Image
+                src={post.banner}
+                alt={post.bannerAlt ?? ""}
+                fill
+                sizes="(min-width: 768px) 60vw, 100vw"
+                className={`object-cover ${PRESS_PHOTO_FILTER}`}
+                priority
+              />
+            </div>
+          </ViewTransition>
         )}
         <p className="text-[length:var(--font-size-small)] uppercase tracking-[0.15em] text-accent-ink font-semibold">
           {post.Category}
@@ -62,15 +65,17 @@ export function TeaserCard({
         {post.Category}
       </span>
       {post.banner && (
-        <span className="relative aspect-video w-20 shrink-0 overflow-hidden self-start bg-paper-raised hidden sm:block">
-          <Image
-            src={post.banner}
-            alt={post.bannerAlt ?? ""}
-            fill
-            sizes="80px"
-            className={`object-cover ${PRESS_PHOTO_FILTER}`}
-          />
-        </span>
+        <ViewTransition name={`post-banner-${post.slug}`}>
+          <span className="relative aspect-video w-20 shrink-0 overflow-hidden self-start bg-paper-raised hidden sm:block">
+            <Image
+              src={post.banner}
+              alt={post.bannerAlt ?? ""}
+              fill
+              sizes="80px"
+              className={`object-cover ${PRESS_PHOTO_FILTER}`}
+            />
+          </span>
+        </ViewTransition>
       )}
       <span className="min-w-0">
         <span className="font-[family-name:var(--font-headline)] text-[length:var(--font-size-h3)] font-semibold text-ink group-hover:underline decoration-1 underline-offset-4">

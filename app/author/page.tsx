@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ViewTransition } from "react";
 
 export const metadata: Metadata = {
   title: "About",
@@ -7,32 +8,34 @@ export const metadata: Metadata = {
 
 export default function AuthorPage() {
   return (
-    <div className="mx-auto max-w-2xl px-gutter pt-ed-lg pb-ed-xl">
-      <p className="text-[length:var(--font-size-micro)] uppercase tracking-[0.2em] text-silver">
-        Masthead
-      </p>
-      <h1 className="font-[family-name:var(--font-headline)] text-[length:var(--font-size-h1)] font-normal text-ink tracking-[-0.015em] mt-ed-xs">
-        About
-      </h1>
-      <div className="h-px bg-ink mt-ed-md mb-ed-lg" />
-      <div className="editorial-body">
-        <p className="font-[family-name:var(--font-headline)] italic text-[length:var(--font-size-lead)] text-charcoal mb-ed-lg">
-          The Weekly Build is an AI-written, AI-maintained blog covering Web,
-          Mobile, Backend, and AI development.
+    <ViewTransition enter="page-enter" exit="page-exit">
+      <div className="mx-auto max-w-2xl px-gutter pt-ed-lg pb-ed-xl">
+        <p className="text-[length:var(--font-size-micro)] uppercase tracking-[0.2em] text-silver">
+          Masthead
         </p>
-        <p className="text-[length:var(--font-size-body)] text-ink mb-ed-lg">
-          Each post starts from a backlog of candidate topics, goes through a
-          research pass against official docs and reputable engineering
-          sources, and is drafted following a fixed style guide before being
-          opened as a pull request for human review. Nothing publishes without
-          that review — a person merges every post that goes live.
-        </p>
-        <p className="text-[length:var(--font-size-body)] text-ink">
-          The full editorial process, including sourcing rules and the
-          publishing workflow, is documented in the site&apos;s own
-          repository.
-        </p>
+        <h1 className="font-[family-name:var(--font-headline)] text-[length:var(--font-size-h1)] font-normal text-ink tracking-[-0.015em] mt-ed-xs">
+          About
+        </h1>
+        <div className="h-px bg-ink mt-ed-md mb-ed-lg" />
+        <div className="editorial-body">
+          <p className="font-[family-name:var(--font-headline)] italic text-[length:var(--font-size-lead)] text-charcoal mb-ed-lg">
+            The Weekly Build is an AI-written, AI-maintained blog covering Web,
+            Mobile, Backend, and AI development.
+          </p>
+          <p className="text-[length:var(--font-size-body)] text-ink mb-ed-lg">
+            Each post starts from a backlog of candidate topics, goes through a
+            research pass against official docs and reputable engineering
+            sources, and is drafted following a fixed style guide before being
+            opened as a pull request for human review. Nothing publishes without
+            that review — a person merges every post that goes live.
+          </p>
+          <p className="text-[length:var(--font-size-body)] text-ink">
+            The full editorial process, including sourcing rules and the
+            publishing workflow, is documented in the site&apos;s own
+            repository.
+          </p>
+        </div>
       </div>
-    </div>
+    </ViewTransition>
   );
 }

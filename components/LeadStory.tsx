@@ -1,3 +1,4 @@
+import { ViewTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { estimateReadTime, getExcerpt, type Post } from "@/lib/posts";
@@ -32,16 +33,18 @@ export function LeadStory({ post }: { post: Post }) {
       </div>
 
       {post.banner && (
-        <div className="relative aspect-video w-full overflow-hidden mt-ed-md bg-paper-raised">
-          <Image
-            src={post.banner}
-            alt={post.bannerAlt ?? ""}
-            fill
-            sizes="(min-width: 1200px) 50vw, 100vw"
-            className="object-cover saturate-[0.65] contrast-[1.08]"
-            priority
-          />
-        </div>
+        <ViewTransition name={`post-banner-${post.slug}`}>
+          <div className="relative aspect-video w-full overflow-hidden mt-ed-md bg-paper-raised">
+            <Image
+              src={post.banner}
+              alt={post.bannerAlt ?? ""}
+              fill
+              sizes="(min-width: 1200px) 50vw, 100vw"
+              className="object-cover saturate-[0.65] contrast-[1.08]"
+              priority
+            />
+          </div>
+        </ViewTransition>
       )}
 
       <p className="text-[length:var(--font-size-body)] text-ink leading-relaxed mt-ed-md">
