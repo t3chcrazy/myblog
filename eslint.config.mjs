@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated vendor code, rebuilt by `pagefind` on every build.
+    "public/pagefind/**",
   ]),
 ]);
 

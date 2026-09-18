@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export function ThemeToggle() {
-  const [isDark, setIsDark] = useState(false);
-
-  useEffect(() => {
-    setIsDark(document.documentElement.classList.contains("dark"));
-  }, []);
+  const [isDark, setIsDark] = useState(
+    () =>
+      typeof document !== "undefined" &&
+      document.documentElement.classList.contains("dark"),
+  );
 
   function toggle() {
     const next = !document.documentElement.classList.contains("dark");
@@ -21,6 +21,7 @@ export function ThemeToggle() {
       type="button"
       onClick={toggle}
       className="text-[length:var(--font-size-micro)] uppercase tracking-[0.15em] text-charcoal hover:text-accent-ink transition-colors"
+      suppressHydrationWarning
     >
       {isDark ? "Day Edition" : "Night Edition"}
     </button>
