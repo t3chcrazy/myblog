@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build && pagefind --site .next/server/app --output-path public/pagefind",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "prepare": "husky"
   },
   "dependencies": {
     "feed": "^6.0.0",
@@ -26,9 +27,14 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.5.1",
     "pagefind": "^1.5.2",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,vue,html}": "eslint --fix"
   },
   "packageManager": "bun@1.4.2",
   "ignoreScripts": [
