@@ -33,8 +33,11 @@ A full technical spec — site rebuild (design + Next.js) + content pipeline + w
 - [Backlog file format and topic-selection rule](../wayfinder/tickets/0005-backlog-format.md): single `backlog.md` markdown checklist, agent picks next unstarted/uncovered topic by judgment (not FIFO/priority), user seeds/vetoes via PR edits, agent proposes new topics itself when backlog runs dry.
 - [Deep-research methodology and quality bar for each post](../wayfinder/tickets/0006-research-methodology.md): official docs/specs + reputable eng blogs only, 3+ sources cited inline, tone/length/structure enforced via an in-repo `STYLE.md` rather than per-run judgment.
 - [PR/publish workflow specifics](../wayfinder/tickets/0007-pr-publish-workflow.md): branch `claude/post-<slug>`, PR body = post preview + research summary, Vercel preview deploy required on the PR, merge auto-deploys prod via Vercel's git integration.
+- [Set up Claude Code Routines prerequisites](../wayfinder/tickets/0008-routines-setup.md): repo `t3chcrazy/myblog` created + pushed, Pro subscription confirmed, GitHub App granted repo access, "Blog network env" cloud environment created with Network Access = Full.
 
 ## Not yet specified
+
+- The actual routine config (name, instructions/prompt, trigger schedule) — prerequisites are done ([0008](../wayfinder/tickets/0008-routines-setup.md)), but the prompt depends on `backlog.md` and `STYLE.md` existing in-repo first, and neither is written yet.
 
 - Confirm Gemini's actual free-tier image-generation rate limit live in AI Studio before the pipeline depends on it (docs alone didn't pin this down; reported cut Dec 2025).
 - The source Framer template also has `/author`, `/categories`, `/legal-pages`, `/subscribe` page types beyond the core blog index/detail pages — in scope as site chrome, but not yet sharp enough to ticket (which of these does v1 actually need vs. defer).
