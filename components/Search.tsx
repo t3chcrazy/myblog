@@ -24,6 +24,19 @@ type PagefindModule = {
   filters: () => Promise<PagefindFilterCounts>;
 };
 
+// Pagefind indexes the raw prerendered .html files under .next/server/app,
+// so result URLs come back as e.g. "/blog/my-post.html" — but Next.js
+// serves that route without the extension. Strip it before using as a href.
+function toRoutePath(pagefindUrl: string): string {
+  if (pagefindUrl.endsWith("/index.html")) {
+    return pagefindUrl.slice(0, -"index.html".length) || "/";
+  }
+  if (pagefindUrl.endsWith(".html")) {
+    return pagefindUrl.slice(0, -".html".length);
+  }
+  return pagefindUrl;
+}
+
 let pagefindPromise: Promise<PagefindModule> | null = null;
 
 function loadPagefind() {
@@ -79,10 +92,7 @@ export function Search() {
   }, [open]);
 
   useEffect(() => {
-    if (!open || query.trim().length < 2) {
-      setResults([]);
-      return;
-    }
+    if (!open || query.trim().length < 2) return;
 
     let cancelled = false;
     const started = performance.now();
@@ -107,17 +117,19 @@ export function Search() {
     };
   }, [open, query, category]);
 
+  const visibleResults = query.trim().length >= 2 ? results : [];
+
   function onInputKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Escape") {
       close();
     } else if (e.key === "ArrowDown") {
       e.preventDefault();
-      setSelected((i) => Math.min(i + 1, results.length - 1));
+      setSelected((i) => Math.min(i + 1, visibleResults.length - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setSelected((i) => Math.max(i - 1, 0));
-    } else if (e.key === "Enter" && results[selected]) {
-      window.location.href = results[selected].url;
+    } else if (e.key === "Enter" && visibleResults[selected]) {
+      window.location.href = toRoutePath(visibleResults[selected].url);
     }
   }
 
@@ -184,17 +196,17 @@ export function Search() {
                   placeholder="Search posts by keyword or topic..."
                   className="flex-1 bg-transparent text-[length:var(--font-size-h3)] font-[family-name:var(--font-headline)] text-ink focus:outline-none"
                 />
-                {results.length > 0 && (
+                {visibleResults.length > 0 && (
                   <span className="hidden sm:inline text-[length:var(--font-size-micro)] uppercase tracking-wide text-silver whitespace-nowrap ml-ed-md">
-                    {results.length} results in {elapsedMs}ms
+                    {visibleResults.length} results in {elapsedMs}ms
                   </span>
                 )}
               </div>
 
               {unavailable && query.trim().length >= 2 && (
                 <p className="text-[length:var(--font-size-small)] text-silver mt-ed-md">
-                  Search index unavailable — it's only built in production
-                  (`bun run build`), not in dev mode.
+                  Search index unavailable — it&apos;s only built in
+                  production (`bun run build`), not in dev mode.
                 </p>
               )}
 
@@ -237,12 +249,12 @@ export function Search() {
                 </div>
               )}
 
-              {results.length > 0 && (
+              {visibleResults.length > 0 && (
                 <ul className="mt-ed-md divide-y divide-hairline max-h-[420px] overflow-y-auto">
-                  {results.map((result, i) => (
+                  {visibleResults.map((result, i) => (
                     <li key={result.url}>
                       <a
-                        href={result.url}
+                        href={toRoutePath(result.url)}
                         onClick={close}
                         onMouseEnter={() => setSelected(i)}
                         className={`block py-ed-sm px-ed-xs ${i === selected ? "bg-paper-raised" : ""}`}
