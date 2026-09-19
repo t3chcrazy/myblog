@@ -5,6 +5,8 @@ date: "2026-09-19"
 Category: Web
 dek: "\"Server Components run on the server\" is technically true and practically useless. Here's the actual execution model — what gets sent to the browser, when streaming breaks, and why 'use client' is a boundary, not a switch."
 tags: ["react", "nextjs", "server-components", "performance"]
+banner: "/banners/react-server-components-what-runs-where.png"
+bannerAlt: "Editorial illustration of a server rack's data flowing as a tree of connected nodes across a divide into a browser window, representing the Server Component to Client Component boundary."
 ---
 
 "Server Components run on the server, Client Components run in the browser" is the sentence everyone learns first, and it's the sentence that gets people into trouble. It implies a clean split — half your app on one machine, half on another. The real model is stranger: Server Components don't ship to the browser *at all*, Client Components render on the server too on first load, and the thing connecting them isn't HTML — it's a serialized tree neither half fully controls alone. Once you see that tree, a whole category of "why is this slow" questions stops being mysterious.
