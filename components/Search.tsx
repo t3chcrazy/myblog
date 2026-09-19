@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { CATEGORIES } from "@/lib/categories";
 
 type PagefindResultData = {
@@ -155,11 +156,12 @@ export function Search() {
         </div>
       </div>
 
-      {open && (
-        <div
-          className="fixed inset-0 z-50 bg-ink/40 backdrop-blur-sm flex items-start justify-center p-gutter overflow-y-auto"
-          onClick={close}
-        >
+      {open &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 bg-ink/40 backdrop-blur-sm flex items-start justify-center p-gutter overflow-y-auto"
+            onClick={close}
+          >
           <div
             className="relative w-full max-w-3xl my-auto bg-paper border border-ink"
             onClick={(e) => e.stopPropagation()}
@@ -298,8 +300,9 @@ export function Search() {
               </span>
             </div>
           </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </>
   );
 }
