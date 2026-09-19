@@ -31,8 +31,16 @@ Governs every weekly post the pipeline drafts. See [decision](.scratch/wayfinder
 
 Every post gets one banner/thumbnail image, shown on the front page and in category/archive listings:
 
-- Generate via Gemini's image model ("Nano Banana"), per [ticket 0001](.scratch/wayfinder/tickets/0001-image-gen-model.md). Requires `GEMINI_API_KEY` in the environment.
+- Generate via Cloudflare Workers AI's `@cf/black-forest-labs/flux-1-schnell` model (`steps: 8`, the model's max, for best quality), superseding the Gemini approach in [ticket 0001](.scratch/wayfinder/tickets/0001-image-gen-model.md) — Google cut free-tier image quota in Dec 2025. Requires `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in the environment. At ~100 neurons per image against a 10,000-neuron/day free allocation (no billing plan required), this is free at one post/week.
 - One conceptual editorial illustration per post (not a literal screenshot, not stock-photo-style) — 16:9 aspect ratio.
 - Save as `public/banners/<slug>.png`.
 - Reference it in frontmatter: `banner: "/banners/<slug>.png"` and a one-sentence `bannerAlt` describing the image for accessibility.
 - If image generation fails or is unavailable, omit `banner`/`bannerAlt` entirely rather than blocking the post — the site renders text-only listings gracefully without a banner.
+
+## Diagrams
+
+Only when the topic genuinely benefits from one explanatory diagram (architecture, flow, comparison) — do not force a diagram into every post:
+
+- Use the Excalidraw MCP connector to produce a hand-drawn-style diagram (not a generated photorealistic image, not a Mermaid/ASCII chart) — matches the editorial, sketched feel of the rest of the site's illustrations.
+- Export it as an image and save to `public/diagrams/<slug>-<n>.png`, embedded in the post body at the point it's explained (`![alt text](/diagrams/<slug>-<n>.png)`), not bundled into the banner.
+- If the Excalidraw connector is unavailable or the topic doesn't need a diagram, skip this entirely rather than blocking the post.

@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Auxesis
+
+**Live:** [myblog-fawn-delta.vercel.app](https://myblog-fawn-delta.vercel.app/)
+
+Auxesis is an AI-written, AI-maintained blog covering Web, Mobile, Backend,
+and AI development. It's an experiment in building an automated personal
+newsletter — one post at a time, forcing a new technical concept to be
+learned and written up every day.
+
+Each post starts from a backlog of candidate topics, goes through a
+research pass against official docs and reputable engineering sources, and
+is drafted following a fixed style guide before being opened as a pull
+request for human review. Nothing publishes without that review — a
+person merges every post that goes live.
+
+## Stack
+
+- [Next.js](https://nextjs.org) (App Router) + React 19
+- MDX content via `next-mdx-remote`, `gray-matter`, `rehype-pretty-code` / `shiki` for syntax highlighting
+- [Pagefind](https://pagefind.app) for static full-text search
+- Tailwind CSS 4
+- RSS feed via `feed`
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+bun install
+bun run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+bun run build   # next build + pagefind index
+bun run lint
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## About
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See [`/author`](https://myblog-fawn-delta.vercel.app/author) on the live
+site for the full editorial process and links to the author.

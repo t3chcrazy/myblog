@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next"
 import { newsreader, plusJakartaSans } from "./fonts";
 import { Masthead } from "@/components/Masthead";
 import { Footer } from "@/components/Footer";
@@ -39,6 +40,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           {children}
         </main>
         <Footer />
+        <Analytics />
       </body>
     </html>
   );
