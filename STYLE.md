@@ -41,6 +41,7 @@ Every post gets one banner/thumbnail image, shown on the front page and in categ
 
 Only when the topic genuinely benefits from one explanatory diagram (architecture, flow, comparison) — do not force a diagram into every post:
 
-- Use the Excalidraw MCP connector to produce a hand-drawn-style diagram (not a generated photorealistic image, not a Mermaid/ASCII chart) — matches the editorial, sketched feel of the rest of the site's illustrations.
-- Export it as an image and save to `public/diagrams/<slug>-<n>.png`, embedded in the post body at the point it's explained (`![alt text](/diagrams/<slug>-<n>.png)`), not bundled into the banner.
-- If the Excalidraw connector is unavailable or the topic doesn't need a diagram, skip this entirely rather than blocking the post.
+- Generate hand-drawn-style SVGs headlessly with `@excalidraw/utils`'s `exportToSvg`, run from a small Node script in the pipeline's sandbox — not the Excalidraw MCP connector (it only renders a live view for the chat UI, with no way to export a static file; see [ticket 0009](.scratch/wayfinder/tickets/0009-diagram-export.md)).
+- Write the diagram as an Excalidraw scene (a plain JSON `elements` array — rectangles, arrows, text, matching the element schema/color palette used previously), then call `exportToSvg({ elements, appState: { exportBackground: true, ... } })` and write the returned SVG's markup to disk. Install the package on the fly (`npm install --no-save @excalidraw/utils`) since the pipeline's sandbox isn't pre-provisioned with it.
+- Save to `public/diagrams/<slug>-<n>.svg`, embedded in the post body at the point it's explained (`![alt text](/diagrams/<slug>-<n>.svg)`), not bundled into the banner.
+- If the export fails for any reason (missing canvas/DOM support in the sandbox, package install failure, etc.), skip this step entirely and omit the diagram rather than blocking the post — same fallback as the banner image.
