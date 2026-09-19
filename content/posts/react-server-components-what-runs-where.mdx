@@ -1,0 +1,58 @@
+---
+title: "React Server Components: What Actually Runs Where"
+slug: react-server-components-what-runs-where
+date: "2026-09-19"
+Category: Web
+dek: "\"Server Components run on the server\" is technically true and practically useless. Here's the actual execution model — what gets sent to the browser, when streaming breaks, and why 'use client' is a boundary, not a switch."
+tags: ["react", "nextjs", "server-components", "performance"]
+---
+
+"Server Components run on the server, Client Components run in the browser" is the sentence everyone learns first, and it's the sentence that gets people into trouble. It implies a clean split — half your app on one machine, half on another. The real model is stranger: Server Components don't ship to the browser *at all*, Client Components render on the server too on first load, and the thing connecting them isn't HTML — it's a serialized tree neither half fully controls alone. Once you see that tree, a whole category of "why is this slow" questions stops being mysterious.
+
+## The default is server, and that's not just a style choice
+
+In the Next.js App Router, every layout and page is a Server Component unless you say otherwise. [Next.js's own docs](https://nextjs.org/docs/app/getting-started/server-and-client-components) are direct about why you'd want that: fetch data close to the source, use API keys and tokens without exposing them, and — the one people undersell — reduce the JavaScript the browser has to download in the first place.
+
+That last point is the whole game. A Server Component that imports a markdown parser, a syntax highlighter, or a database client never puts any of that code in the client bundle. [React's own docs](https://react.dev/reference/rsc/server-components) show the shape of it plainly:
+
+```js
+// Server Component - renders at build/request time
+async function Page({ page }) {
+  const content = await file.readFile(`${page}.md`)
+  return <div>{sanitizeHtml(marked(content))}</div>
+}
+```
+
+`marked` and `sanitizeHtml` never reach the browser. The component runs once, produces markup, and only the markup travels. This is why "Server Components" is a slightly misleading name — they're not really *components* in the runtime sense once they leave the server. They're a rendering step that happens to use JSX syntax.
+
+## `"use client"` marks a boundary, not a component
+
+The directive is easy to misread as "this component runs on the client." What it actually does is mark the start of a module graph that ships to the browser. Once a file has `"use client"` at the top, [Next.js is explicit](https://nextjs.org/docs/app/getting-started/server-and-client-components) that "all of its imports and the components it directly renders are included in the client bundle" — not just that one component, everything it pulls in underneath it.
+
+That's why dropping `"use client"` at the top of a `<Layout>` to fix one interactive search box is the wrong move: it drags the logo, the nav, and everything else in that file's import tree into the client bundle with it. The fix is pushing the directive down to the actual leaf — the search input itself — and leaving the static shell as a Server Component that renders it as a child. Server Components passed as `children` or props into a Client Component are the one exception to "everything gets swept in": they're rendered ahead of time on the server and handed to the client tree as already-finished output, not pulled into its module graph.
+
+## What crosses the wire, concretely
+
+On first load, three things happen in sequence, and [Next.js documents them](https://nextjs.org/docs/app/getting-started/server-and-client-components) as distinct payloads, not one blob:
+
+1. **HTML** renders immediately — a non-interactive preview of the page.
+2. The **RSC payload** — a compact serialized tree of the rendered Server Components, plus placeholders for where Client Components go and which JS files they need — arrives and reconciles against that HTML.
+3. **JavaScript** hydrates the Client Components, attaching event handlers so the page actually responds to clicks.
+
+On every navigation after that first load, only step 2 happens — the RSC payload gets prefetched and cached, and Client Components render entirely in the browser without a fresh server-rendered HTML pass. That's the mechanism behind App Router navigations feeling instant: you're not re-fetching a page, you're re-fetching a tree diff.
+
+The constraint this creates is the one that trips people up: anything crossing from a Server Component into a Client Component as a prop has to survive that serialization. Functions, class instances, and `Date` objects don't make it across cleanly — which is also why Server Components can't hold React context. Context requires a provider component instance living in the render tree across re-renders, and Server Components don't have a persistent instance to hold one. You wrap `createContext` and the provider in their own `"use client"` file instead.
+
+## Where the streaming story actually breaks
+
+The theoretical win of Server Components is streaming — the server sends what it has ready and fills in the rest as slow data arrives. In practice, [a LogRocket teardown of RSC performance pitfalls](https://blog.logrocket.com/react-server-components-performance-mistakes/) found the same handful of mistakes killing that benefit over and over:
+
+- **Awaiting slow work before returning any JSX.** If your page component does `await getEverything()` at the top before rendering anything, the server has nothing to send until that resolves — the "shell" the browser could've shown instantly never gets sent early, and streaming is functionally disabled for that route.
+- **Doing this in a layout instead of a page.** It's worse there, because a layout wraps every route beneath it — one slow top-level fetch in a layout stalls the entire subtree, not just one page.
+- **Treating all data as equally urgent.** Not every fetch needs to block the initial paint. Data that can arrive a beat later belongs in its own component wrapped in `<Suspense>`, so the shell ships immediately and the slow part streams in behind it.
+
+None of these are exotic bugs — they're what "await at the top of an async function" looks like when the function in question is now a rendering boundary with its own delivery contract.
+
+## The mental model that actually holds up
+
+Stop thinking "server vs. client" as two places your code can live, and start thinking of it as one tree with a shipping label on part of it. Default everything to Server Components, since that's the framework default and the cheapest path. Push `"use client"` to the smallest leaf that genuinely needs state, effects, or browser APIs — not the component that merely contains one. Treat any `await` in a Server Component as something that delays what the browser sees, and wrap the parts that can legitimately wait in `Suspense` so they don't block the parts that can't. Get those three habits right and most of what looks like "RSC weirdness" turns out to be ordinary async code, just running somewhere that finally makes the delay visible.
