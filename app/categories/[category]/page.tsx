@@ -37,7 +37,7 @@ export default async function CategoryPage({
 
   return (
     <ViewTransition enter="page-enter" exit="page-exit">
-      <div className="mx-auto max-w-3xl px-gutter pt-ed-lg pb-ed-xl">
+      <div className="mx-auto max-w-310 px-gutter pt-ed-lg pb-ed-xl">
         <p className="text-(length:--font-size-micro) uppercase tracking-[0.2em] text-silver">
           Section
         </p>

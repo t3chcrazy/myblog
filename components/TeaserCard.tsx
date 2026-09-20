@@ -59,19 +59,19 @@ export function TeaserCard({
   return (
     <Link
       href={`/blog/${post.slug}`}
-      className="group flex items-baseline gap-ed-md py-ed-md border-b border-hairline first:pt-0"
+      className="group flex flex-col lg:flex-row lg:items-baseline gap-ed-sm lg:gap-ed-md py-ed-md border-b border-hairline first:pt-0"
     >
-      <span className="text-(length:--font-size-micro) uppercase tracking-[0.15em] text-accent-ink font-semibold w-16 shrink-0 self-start mt-1">
+      <span className="text-(length:--font-size-micro) uppercase tracking-[0.15em] text-accent-ink font-semibold w-16 shrink-0 self-start lg:mt-1">
         {post.Category}
       </span>
       {post.banner && (
         <ViewTransition name={`post-banner-${post.slug}`}>
-          <span className="relative aspect-video w-20 shrink-0 overflow-hidden self-start bg-paper-raised hidden sm:block">
+          <span className="relative aspect-video w-full lg:w-70 lg:shrink-0 overflow-hidden self-start bg-paper-raised hidden sm:block">
             <Image
               src={post.banner}
               alt={post.bannerAlt ?? ""}
               fill
-              sizes="80px"
+              sizes="(min-width: 1024px) 280px, 100vw"
               className={`object-cover ${PRESS_PHOTO_FILTER}`}
             />
           </span>
@@ -85,7 +85,7 @@ export function TeaserCard({
           {post.dek}
         </span>
       </span>
-      <span className="text-(length:--font-size-micro) uppercase tracking-wide text-silver shrink-0 ml-auto self-start">
+      <span className="text-(length:--font-size-micro) uppercase tracking-wide text-silver shrink-0 lg:ml-auto self-start">
         {formatDate(post.date)}
       </span>
     </Link>
