@@ -49,6 +49,46 @@ export function getPostsByCategory(category: string): Post[] {
   );
 }
 
+export function getAllTags(): string[] {
+  const tags = new Set<string>();
+  for (const post of getAllPosts()) {
+    for (const tag of post.tags) tags.add(tag.toLowerCase());
+  }
+  return [...tags].sort();
+}
+
+export function getPostsByTag(tag: string): Post[] {
+  const normalized = tag.toLowerCase();
+  return getAllPosts().filter((post) =>
+    post.tags.some((t) => t.toLowerCase() === normalized)
+  );
+}
+
+/** Other posts sharing tags/category with `post`, ranked by tag-overlap
+ * count (ties broken by same category, then recency). Used for the
+ * "Related posts" section at the bottom of each post. */
+export function getRelatedPosts(post: Post, limit = 3): Post[] {
+  const postTags = new Set(post.tags.map((t) => t.toLowerCase()));
+
+  return getAllPosts()
+    .filter((candidate) => candidate.slug !== post.slug)
+    .map((candidate) => {
+      const overlap = candidate.tags.filter((t) =>
+        postTags.has(t.toLowerCase())
+      ).length;
+      const sameCategory = candidate.Category === post.Category ? 1 : 0;
+      return { candidate, overlap, sameCategory };
+    })
+    .filter(({ overlap, sameCategory }) => overlap > 0 || sameCategory > 0)
+    .sort((a, b) => {
+      if (b.overlap !== a.overlap) return b.overlap - a.overlap;
+      if (b.sameCategory !== a.sameCategory) return b.sameCategory - a.sameCategory;
+      return new Date(b.candidate.date).getTime() - new Date(a.candidate.date).getTime();
+    })
+    .slice(0, limit)
+    .map(({ candidate }) => candidate);
+}
+
 /** Plain-text excerpt of MDX body content, stripped of markdown/JSX syntax,
  * truncated at a word boundary. Used for the front-page lead preview. */
 export function getExcerpt(content: string, maxChars = 600): string {

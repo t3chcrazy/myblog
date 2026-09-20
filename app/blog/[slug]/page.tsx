@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import { ViewTransition } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import rehypePrettyCode from "rehype-pretty-code";
-import { getAllPosts, getPostBySlug } from "@/lib/posts";
+import { getAllPosts, getPostBySlug, getRelatedPosts } from "@/lib/posts";
 import { mdxComponents } from "@/components/mdx-components";
+import { TeaserCard } from "@/components/TeaserCard";
 
 export function generateStaticParams() {
   return getAllPosts().map((post) => ({ slug: post.slug }));
@@ -43,6 +45,8 @@ export default async function PostPage({
   const { slug } = await params;
   const post = getPostBySlug(slug);
   if (!post) notFound();
+
+  const relatedPosts = getRelatedPosts(post);
 
   const date = new Date(post.date).toLocaleDateString("en-US", {
     month: "long",
@@ -106,8 +110,30 @@ export default async function PostPage({
         </div>
         <div className="h-px bg-hairline" />
         <p className="text-(length:--font-size-micro) uppercase tracking-[0.15em] text-silver mt-ed-md">
-          Filed under: {post.tags.join(", ")}
+          Filed under:{" "}
+          {post.tags.map((tag, i) => (
+            <span key={tag}>
+              {i > 0 && ", "}
+              <Link href={`/tags/${tag}`} className="hover:text-accent-ink hover:underline">
+                {tag}
+              </Link>
+            </span>
+          ))}
         </p>
+
+        {relatedPosts.length > 0 && (
+          <div className="mt-ed-xl">
+            <h2 className="font-headline text-(length:--font-size-h2) font-medium text-ink tracking-[-0.01em]">
+              Related dispatches
+            </h2>
+            <div className="h-px bg-ink mt-ed-sm" />
+            <div className="mt-ed-sm">
+              {relatedPosts.map((related) => (
+                <TeaserCard key={related.slug} post={related} variant="row" />
+              ))}
+            </div>
+          </div>
+        )}
       </article>
     </ViewTransition>
   );
