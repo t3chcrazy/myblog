@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
-import { ViewTransition } from "react";
 import { notFound } from "next/navigation";
 import { CATEGORIES, getPostsByCategory } from "@/lib/posts";
-import { TeaserCard } from "@/components/TeaserCard";
-import { EmptyState } from "@/components/EmptyState";
+import { PostListPage } from "@/components/PostListPage";
 
 export function generateStaticParams() {
   return CATEGORIES.map((category) => ({ category: category.toLowerCase() }));
@@ -36,28 +34,12 @@ export default async function CategoryPage({
   const posts = getPostsByCategory(resolved);
 
   return (
-    <ViewTransition enter="page-enter" exit="page-exit">
-      <div className="mx-auto max-w-310 px-gutter pt-ed-lg pb-ed-xl">
-        <p className="text-(length:--font-size-micro) uppercase tracking-[0.2em] text-silver">
-          Section
-        </p>
-        <h1 className="font-headline text-(length:--font-size-h1) font-normal text-ink tracking-[-0.015em] mt-ed-xs">
-          {resolved}
-        </h1>
-        <div className="h-px bg-ink mt-ed-md mb-ed-sm" />
-        {posts.length === 0 ? (
-          <EmptyState
-            title="Dispatches Pending Typesetting"
-            body={`The ${resolved} desk hasn't filed a dispatch yet. Our compositors are gathering copy for the upcoming print cycle.`}
-          />
-        ) : (
-          <div>
-            {posts.map((post) => (
-              <TeaserCard key={post.slug} post={post} variant="row" />
-            ))}
-          </div>
-        )}
-      </div>
-    </ViewTransition>
+    <PostListPage
+      eyebrow="Section"
+      title={resolved}
+      posts={posts}
+      emptyTitle="Dispatches Pending Typesetting"
+      emptyBody={`The ${resolved} desk hasn't filed a dispatch yet. Our compositors are gathering copy for the upcoming print cycle.`}
+    />
   );
 }

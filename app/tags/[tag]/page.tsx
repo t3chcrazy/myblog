@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
-import { ViewTransition } from "react";
 import { notFound } from "next/navigation";
 import { getAllTags, getPostsByTag } from "@/lib/posts";
-import { TeaserCard } from "@/components/TeaserCard";
-import { EmptyState } from "@/components/EmptyState";
+import { PostListPage } from "@/components/PostListPage";
 
 export function generateStaticParams() {
   return getAllTags().map((tag) => ({ tag }));
@@ -30,28 +28,12 @@ export default async function TagPage({
   const posts = getPostsByTag(tag);
 
   return (
-    <ViewTransition enter="page-enter" exit="page-exit">
-      <div className="mx-auto max-w-310 px-gutter pt-ed-lg pb-ed-xl">
-        <p className="text-(length:--font-size-micro) uppercase tracking-[0.2em] text-silver">
-          Tag
-        </p>
-        <h1 className="font-headline text-(length:--font-size-h1) font-normal text-ink tracking-[-0.015em] mt-ed-xs">
-          #{tag}
-        </h1>
-        <div className="h-px bg-ink mt-ed-md mb-ed-sm" />
-        {posts.length === 0 ? (
-          <EmptyState
-            title="Nothing Filed Under This Tag"
-            body={`No dispatches have been tagged "${tag}" yet.`}
-          />
-        ) : (
-          <div>
-            {posts.map((post) => (
-              <TeaserCard key={post.slug} post={post} variant="row" />
-            ))}
-          </div>
-        )}
-      </div>
-    </ViewTransition>
+    <PostListPage
+      eyebrow="Tag"
+      title={`#${tag}`}
+      posts={posts}
+      emptyTitle="Nothing Filed Under This Tag"
+      emptyBody={`No dispatches have been tagged "${tag}" yet.`}
+    />
   );
 }
