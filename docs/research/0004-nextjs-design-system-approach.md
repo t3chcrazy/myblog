@@ -210,7 +210,7 @@ newspaper's larger-on-bigger-screens headline behavior.
    bigger at wider breakpoints" behavior is layered on with plain
    @media blocks that reassign the same custom properties. Any
    Tailwind utility built from these vars (e.g. text-h1, via
-   `text-[length:var(--font-size-h1)]` or a mapped utility) — and any
+   `text-(length:--font-size-h1)` or a mapped utility) — and any
    plain CSS using var(--font-size-h1) — picks up the new value
    automatically past each breakpoint. */
 @media (min-width: 810px) {
@@ -242,7 +242,7 @@ vars) with the responsive type-scale vars applied directly:
 export default function ArticlePage() {
   return (
     <article className="bg-paper text-ink">
-      <p className="text-accent font-body text-[length:var(--font-size-small)] uppercase tracking-wide">
+      <p className="text-accent font-body text-(length:--font-size-small) uppercase tracking-wide">
         Politics
       </p>
       <h1
@@ -264,7 +264,7 @@ export default function ArticlePage() {
         {/* article body */}
       </div>
       <hr className="border-hairline" />
-      <p className="tablet:hidden text-gray text-[length:var(--font-size-small)]">
+      <p className="tablet:hidden text-gray text-(length:--font-size-small)">
         Mobile-only byline
       </p>
     </article>
@@ -286,7 +286,7 @@ Tailwind v4 patterns, not invented):
   queries" — [Theme variables](https://tailwindcss.com/docs/theme)). This keeps a
   single custom-property name per token (`--font-size-h1`) whose *value* changes with
   viewport width, which both plain CSS and Tailwind's arbitrary-value utilities
-  (`text-[length:var(--font-size-h1)]`) can consume.
+  (`text-(length:--font-size-h1)`) can consume.
 
 ---
 

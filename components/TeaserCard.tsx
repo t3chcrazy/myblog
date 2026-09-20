@@ -40,16 +40,16 @@ export function TeaserCard({
             </div>
           </ViewTransition>
         )}
-        <p className="text-[length:var(--font-size-small)] uppercase tracking-[0.15em] text-accent-ink font-semibold">
+        <p className="text-(length:--font-size-small) uppercase tracking-[0.15em] text-accent-ink font-semibold">
           {post.Category}
         </p>
-        <h3 className="font-[family-name:var(--font-headline)] text-[length:var(--font-size-h1)] font-normal text-ink mt-ed-sm leading-[1.1] tracking-[-0.015em] group-hover:underline decoration-1 underline-offset-4">
+        <h3 className="font-headline text-(length:--font-size-h1) font-normal text-ink mt-ed-sm leading-[1.1] tracking-[-0.015em] group-hover:underline decoration-1 underline-offset-4">
           {post.title}
         </h3>
-        <p className="font-[family-name:var(--font-headline)] italic text-[length:var(--font-size-lead)] text-charcoal mt-ed-md max-w-xl">
+        <p className="font-headline italic text-(length:--font-size-lead) text-charcoal mt-ed-md max-w-xl">
           {post.dek}
         </p>
-        <p className="text-[length:var(--font-size-micro)] uppercase tracking-[0.15em] text-silver mt-ed-md">
+        <p className="text-(length:--font-size-micro) uppercase tracking-[0.15em] text-silver mt-ed-md">
           {formatDate(post.date)}
         </p>
       </Link>
@@ -61,7 +61,7 @@ export function TeaserCard({
       href={`/blog/${post.slug}`}
       className="group flex items-baseline gap-ed-md py-ed-md border-b border-hairline first:pt-0"
     >
-      <span className="text-[length:var(--font-size-micro)] uppercase tracking-[0.15em] text-accent-ink font-semibold w-16 shrink-0 self-start mt-1">
+      <span className="text-(length:--font-size-micro) uppercase tracking-[0.15em] text-accent-ink font-semibold w-16 shrink-0 self-start mt-1">
         {post.Category}
       </span>
       {post.banner && (
@@ -78,14 +78,14 @@ export function TeaserCard({
         </ViewTransition>
       )}
       <span className="min-w-0">
-        <span className="font-[family-name:var(--font-headline)] text-[length:var(--font-size-h3)] font-semibold text-ink group-hover:underline decoration-1 underline-offset-4">
+        <span className="font-headline text-(length:--font-size-h3) font-semibold text-ink group-hover:underline decoration-1 underline-offset-4">
           {post.title}
         </span>
-        <span className="block font-[family-name:var(--font-headline)] italic text-[length:var(--font-size-body)] text-charcoal mt-1">
+        <span className="block font-headline italic text-(length:--font-size-body) text-charcoal mt-1">
           {post.dek}
         </span>
       </span>
-      <span className="text-[length:var(--font-size-micro)] uppercase tracking-wide text-silver shrink-0 ml-auto self-start">
+      <span className="text-(length:--font-size-micro) uppercase tracking-wide text-silver shrink-0 ml-auto self-start">
         {formatDate(post.date)}
       </span>
     </Link>

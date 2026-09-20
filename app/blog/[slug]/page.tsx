@@ -54,19 +54,19 @@ export default async function PostPage({
     <ViewTransition enter="page-enter" exit="page-exit">
       <article className="mx-auto max-w-2xl px-gutter pt-ed-lg pb-ed-xl">
         <p
-          className="text-[length:var(--font-size-small)] uppercase tracking-[0.15em] text-accent-ink font-semibold"
+          className="text-(length:--font-size-small) uppercase tracking-[0.15em] text-accent-ink font-semibold"
           data-pagefind-filter="category"
           data-pagefind-meta="category"
         >
           {post.Category}
         </p>
-        <h1 className="font-[family-name:var(--font-headline)] text-[length:var(--font-size-h1)] font-normal text-ink mt-ed-sm leading-[1.1] tracking-[-0.015em]">
+        <h1 className="font-headline text-(length:--font-size-h1) font-normal text-ink mt-ed-sm leading-[1.1] tracking-[-0.015em]">
           {post.title}
         </h1>
-        <p className="font-[family-name:var(--font-headline)] italic text-[length:var(--font-size-lead)] text-charcoal mt-ed-md">
+        <p className="font-headline italic text-(length:--font-size-lead) text-charcoal mt-ed-md">
           {post.dek}
         </p>
-        <div className="flex items-center gap-ed-md mt-ed-md text-[length:var(--font-size-micro)] uppercase tracking-[0.15em] text-silver">
+        <div className="flex items-center gap-ed-md mt-ed-md text-(length:--font-size-micro) uppercase tracking-[0.15em] text-silver">
           <span>By Auxesis</span>
           <span aria-hidden>&middot;</span>
           <span data-pagefind-meta="date">{date}</span>
@@ -102,10 +102,10 @@ export default async function PostPage({
           />
         </div>
         <div className="flex justify-center my-ed-lg" aria-hidden>
-          <span className="fleuron text-[length:var(--font-size-h3)]">&#10086;</span>
+          <span className="fleuron text-(length:--font-size-h3)">&#10086;</span>
         </div>
         <div className="h-px bg-hairline" />
-        <p className="text-[length:var(--font-size-micro)] uppercase tracking-[0.15em] text-silver mt-ed-md">
+        <p className="text-(length:--font-size-micro) uppercase tracking-[0.15em] text-silver mt-ed-md">
           Filed under: {post.tags.join(", ")}
         </p>
       </article>

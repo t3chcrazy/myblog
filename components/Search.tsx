@@ -146,10 +146,10 @@ export function Search() {
             <span className="text-charcoal mr-ed-sm" aria-hidden>
               &#128269;
             </span>
-            <span className="flex-1 text-[length:var(--font-size-body)] text-silver truncate">
+            <span className="flex-1 text-(length:--font-size-body) text-silver truncate">
               Search dispatches, topics, or tags&hellip;
             </span>
-            <kbd className="hidden sm:inline text-[length:var(--font-size-micro)] font-mono border border-hairline bg-paper-raised px-ed-xs py-[1px] text-silver">
+            <kbd className="hidden sm:inline text-(length:--font-size-micro) font-mono border border-hairline bg-paper-raised px-ed-xs py-px text-silver">
               &#8984;K
             </kbd>
           </button>
@@ -168,17 +168,17 @@ export function Search() {
           >
             <div className="flex items-center justify-between px-ed-md py-ed-sm border-b border-ink bg-paper-raised">
               <div>
-                <span className="block text-[length:var(--font-size-small)] uppercase tracking-[0.15em] text-ink font-semibold">
+                <span className="block text-(length:--font-size-small) uppercase tracking-[0.15em] text-ink font-semibold">
                   Auxesis &middot; Archival Index
                 </span>
-                <span className="block text-[length:var(--font-size-micro)] uppercase tracking-wide text-silver">
+                <span className="block text-(length:--font-size-micro) uppercase tracking-wide text-silver">
                   Indexed via Pagefind &middot; searched locally, no server round-trip
                 </span>
               </div>
               <button
                 type="button"
                 onClick={close}
-                className="text-[length:var(--font-size-micro)] uppercase tracking-wide text-charcoal hover:text-accent-ink"
+                className="text-(length:--font-size-micro) uppercase tracking-wide text-charcoal hover:text-accent-ink"
               >
                 Esc to close
               </button>
@@ -196,17 +196,17 @@ export function Search() {
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={onInputKeyDown}
                   placeholder="Search posts by keyword or topic..."
-                  className="flex-1 bg-transparent text-[length:var(--font-size-h3)] font-[family-name:var(--font-headline)] text-ink focus:outline-none"
+                  className="flex-1 bg-transparent text-(length:--font-size-h3) font-headline text-ink focus:outline-none"
                 />
                 {visibleResults.length > 0 && (
-                  <span className="hidden sm:inline text-[length:var(--font-size-micro)] uppercase tracking-wide text-silver whitespace-nowrap ml-ed-md">
+                  <span className="hidden sm:inline text-(length:--font-size-micro) uppercase tracking-wide text-silver whitespace-nowrap ml-ed-md">
                     {visibleResults.length} results in {elapsedMs}ms
                   </span>
                 )}
               </div>
 
               {unavailable && query.trim().length >= 2 && (
-                <p className="text-[length:var(--font-size-small)] text-silver mt-ed-md">
+                <p className="text-(length:--font-size-small) text-silver mt-ed-md">
                   Search index unavailable — it&apos;s only built in
                   production (`bun run build`), not in dev mode.
                 </p>
@@ -214,13 +214,13 @@ export function Search() {
 
               {query.trim().length >= 2 && (
                 <div className="flex flex-wrap items-center gap-ed-xs mt-ed-md pb-ed-sm border-b border-hairline">
-                  <span className="text-[length:var(--font-size-micro)] uppercase tracking-wide text-silver mr-ed-xs">
+                  <span className="text-(length:--font-size-micro) uppercase tracking-wide text-silver mr-ed-xs">
                     Section:
                   </span>
                   <button
                     type="button"
                     onClick={() => setCategory(null)}
-                    className={`text-[length:var(--font-size-micro)] uppercase tracking-wide px-ed-sm py-[2px] border ${
+                    className={`text-(length:--font-size-micro) uppercase tracking-wide px-ed-sm py-[2px] border ${
                       category === null
                         ? "bg-ink text-paper border-ink"
                         : "border-hairline text-charcoal hover:border-ink"
@@ -236,7 +236,7 @@ export function Search() {
                         type="button"
                         disabled={count === 0}
                         onClick={() => setCategory(c)}
-                        className={`text-[length:var(--font-size-micro)] uppercase tracking-wide px-ed-sm py-[2px] border ${
+                        className={`text-(length:--font-size-micro) uppercase tracking-wide px-ed-sm py-[2px] border ${
                           category === c
                             ? "bg-ink text-paper border-ink"
                             : count === 0
@@ -261,7 +261,7 @@ export function Search() {
                         onMouseEnter={() => setSelected(i)}
                         className={`block py-ed-sm px-ed-xs ${i === selected ? "bg-paper-raised" : ""}`}
                       >
-                        <div className="flex items-center gap-ed-xs text-[length:var(--font-size-micro)] uppercase tracking-wide text-accent-ink font-semibold">
+                        <div className="flex items-center gap-ed-xs text-(length:--font-size-micro) uppercase tracking-wide text-accent-ink font-semibold">
                           {result.meta.category && <span>{result.meta.category}</span>}
                           {result.meta.date && (
                             <>
@@ -270,11 +270,11 @@ export function Search() {
                             </>
                           )}
                         </div>
-                        <span className="block font-[family-name:var(--font-headline)] text-[length:var(--font-size-h3)] font-semibold text-ink mt-1">
+                        <span className="block font-headline text-(length:--font-size-h3) font-semibold text-ink mt-1">
                           {result.meta.title ?? result.url}
                         </span>
                         <span
-                          className="block text-[length:var(--font-size-small)] text-charcoal mt-1"
+                          className="block text-(length:--font-size-small) text-charcoal mt-1"
                           dangerouslySetInnerHTML={{ __html: result.excerpt }}
                         />
                       </a>
@@ -284,7 +284,7 @@ export function Search() {
               )}
             </div>
 
-            <div className="flex items-center gap-ed-md px-ed-md py-ed-xs border-t border-hairline text-[length:var(--font-size-micro)] uppercase tracking-wide text-silver">
+            <div className="flex items-center gap-ed-md px-ed-md py-ed-xs border-t border-hairline text-(length:--font-size-micro) uppercase tracking-wide text-silver">
               <span className="flex items-center gap-1">
                 <kbd className="font-mono border border-hairline bg-paper-raised px-1">&uarr;</kbd>
                 <kbd className="font-mono border border-hairline bg-paper-raised px-1">&darr;</kbd>

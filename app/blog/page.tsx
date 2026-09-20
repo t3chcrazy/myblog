@@ -15,10 +15,10 @@ export default function BlogIndex() {
   return (
     <ViewTransition enter="page-enter" exit="page-exit">
       <div className="mx-auto max-w-3xl px-gutter pt-ed-lg pb-ed-xl">
-        <p className="text-[length:var(--font-size-micro)] uppercase tracking-[0.2em] text-silver">
+        <p className="text-(length:--font-size-micro) uppercase tracking-[0.2em] text-silver">
           Archive
         </p>
-        <h1 className="font-[family-name:var(--font-headline)] text-[length:var(--font-size-h1)] font-normal text-ink tracking-[-0.015em] mt-ed-xs">
+        <h1 className="font-headline text-(length:--font-size-h1) font-normal text-ink tracking-[-0.015em] mt-ed-xs">
           All posts
         </h1>
         <div className="h-px bg-ink mt-ed-md mb-ed-sm" />

@@ -20,7 +20,7 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={toggle}
-      className="text-[length:var(--font-size-micro)] uppercase tracking-[0.15em] text-charcoal hover:text-accent-ink transition-colors"
+      className="text-(length:--font-size-micro) uppercase tracking-[0.15em] text-charcoal hover:text-accent-ink transition-colors"
       suppressHydrationWarning
     >
       {isDark ? "Day Edition" : "Night Edition"}

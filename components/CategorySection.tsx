@@ -16,12 +16,12 @@ export function CategorySection({
   return (
     <section>
       <div className="flex items-baseline justify-between">
-        <h2 className="font-[family-name:var(--font-headline)] text-[length:var(--font-size-h2)] font-medium text-ink tracking-[-0.01em]">
+        <h2 className="font-headline text-(length:--font-size-h2) font-medium text-ink tracking-[-0.01em]">
           {category}
         </h2>
         <Link
           href={`/categories/${category.toLowerCase()}`}
-          className="text-[length:var(--font-size-micro)] uppercase tracking-[0.15em] text-charcoal hover:text-accent-ink"
+          className="text-(length:--font-size-micro) uppercase tracking-[0.15em] text-charcoal hover:text-accent-ink"
         >
           All {category} &rarr;
         </Link>

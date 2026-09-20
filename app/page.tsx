@@ -73,7 +73,7 @@ export default function Home() {
         <>
           <Divider />
           <section>
-            <h2 className="font-[family-name:var(--font-headline)] text-[length:var(--font-size-h2)] font-medium text-ink tracking-[-0.01em]">
+            <h2 className="font-headline text-(length:--font-size-h2) font-medium text-ink tracking-[-0.01em]">
               More from {lead.Category}
             </h2>
             <div className="h-px bg-ink mt-ed-sm" />

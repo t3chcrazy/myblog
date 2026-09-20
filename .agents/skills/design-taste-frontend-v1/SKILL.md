@@ -27,7 +27,7 @@ Unless the user explicitly specifies a different stack, adhere to these structur
 * **Responsiveness & Spacing:**
   * Standardize breakpoints (`sm`, `md`, `lg`, `xl`).
   * Contain page layouts using `max-w-[1400px] mx-auto` or `max-w-7xl`.
-  * **Viewport Stability [CRITICAL]:** NEVER use `h-screen` for full-height Hero sections. ALWAYS use `min-h-[100dvh]` to prevent catastrophic layout jumping on mobile browsers (iOS Safari).
+  * **Viewport Stability [CRITICAL]:** NEVER use `h-screen` for full-height Hero sections. ALWAYS use `min-h-dvh` to prevent catastrophic layout jumping on mobile browsers (iOS Safari).
   * **Grid over Flex-Math:** NEVER use complex flexbox percentage math (`w-[calc(33%-1rem)]`). ALWAYS use CSS Grid (`grid grid-cols-1 md:grid-cols-3 gap-6`) for reliable structures.
 * **Icons:** You MUST use exactly `@phosphor-icons/react` or `@radix-ui/react-icons` as the import paths (check installed version). Standardize `strokeWidth` globally (e.g., exclusively use `1.5` or `2.0`).
 
@@ -58,7 +58,7 @@ LLMs have statistical biases toward specific UI cliché patterns. Proactively co
   * **Loading:** Skeletal loaders matching layout sizes (avoid generic circular spinners).
   * **Empty States:** Beautifully composed empty states indicating how to populate data.
   * **Error States:** Clear, inline error reporting (e.g., forms).
-  * **Tactile Feedback:** On `:active`, use `-translate-y-[1px]` or `scale-[0.98]` to simulate a physical push indicating success/action.
+  * **Tactile Feedback:** On `:active`, use `-translate-y-px` or `scale-[0.98]` to simulate a physical push indicating success/action.
 
 **Rule 6: Data & Form Patterns**
 * **Forms:** Label MUST sit above input. Helper text is optional but should exist in markup. Error text below input. Use a standard `gap-2` for input blocks.
@@ -219,7 +219,7 @@ Implement these specific micro-animations when constructing Bento grids (e.g., R
 Evaluate your code against this matrix before outputting. This is the **last** filter you apply to your logic.
 - [ ] Is global state used appropriately to avoid deep prop-drilling rather than arbitrarily?
 - [ ] Is mobile layout collapse (`w-full`, `px-4`, `max-w-7xl mx-auto`) guaranteed for high-variance designs?
-- [ ] Do full-height sections safely use `min-h-[100dvh]` instead of the bugged `h-screen`?
+- [ ] Do full-height sections safely use `min-h-dvh` instead of the bugged `h-screen`?
 - [ ] Do `useEffect` animations contain strict cleanup functions?
 - [ ] Are empty, loading, and error states provided?
 - [ ] Are cards omitted in favor of spacing where possible?
