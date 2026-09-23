@@ -52,7 +52,7 @@ export function Masthead() {
           ].map((item, i) => (
             <span key={item.href} className="flex items-center">
               {i > 0 && <span className="mx-ed-md text-hairline">|</span>}
-              <Link href={item.href} className="py-ed-sm hover:text-accent-ink">
+              <Link href={item.href} className="py-ed-sm hover:text-accent-ink transition-colors">
                 {item.label}
               </Link>
             </span>

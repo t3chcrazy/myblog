@@ -14,16 +14,16 @@ export function CategorySection({
   const [lead, ...rest] = posts;
 
   return (
-    <section>
+    <section className="reveal">
       <div className="flex items-baseline justify-between">
         <h2 className="font-headline text-(length:--font-size-h2) font-medium text-ink tracking-[-0.01em]">
           {category}
         </h2>
         <Link
           href={`/categories/${category.toLowerCase()}`}
-          className="text-(length:--font-size-micro) uppercase tracking-[0.15em] text-charcoal hover:text-accent-ink"
+          className="group text-(length:--font-size-micro) uppercase tracking-[0.15em] text-charcoal hover:text-accent-ink transition-colors"
         >
-          All {category} &rarr;
+          All {category} <span className="nudge" aria-hidden>&rarr;</span>
         </Link>
       </div>
       <div className="h-px bg-ink mt-ed-sm" />
@@ -33,7 +33,7 @@ export function CategorySection({
       <div className="grid gap-ed-xl tablet:grid-cols-[7fr_5fr] mt-ed-lg">
         <TeaserCard post={lead} variant="lead" />
         {rest.length > 0 && (
-          <div className="tablet:border-l tablet:border-hairline tablet:pl-lg">
+          <div className="tablet:border-l tablet:border-hairline tablet:pl-ed-lg">
             {rest.map((post) => (
               <TeaserCard key={post.slug} post={post} variant="row" />
             ))}

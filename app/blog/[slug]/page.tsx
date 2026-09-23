@@ -6,7 +6,7 @@ import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import rehypePrettyCode from "rehype-pretty-code";
-import { getAllPosts, getPostBySlug, getRelatedPosts } from "@/lib/posts";
+import { estimateReadTime, getAllPosts, getPostBySlug, getRelatedPosts } from "@/lib/posts";
 import { mdxComponents } from "@/components/mdx-components";
 import { TeaserCard } from "@/components/TeaserCard";
 
@@ -53,17 +53,21 @@ export default async function PostPage({
     day: "numeric",
     year: "numeric",
   });
+  const minutes = estimateReadTime(post.content);
 
   return (
     <ViewTransition enter="page-enter" exit="page-exit">
       <article className="mx-auto max-w-2xl px-gutter pt-ed-lg pb-ed-xl">
-        <p
-          className="text-(length:--font-size-small) uppercase tracking-[0.15em] text-accent-ink font-semibold"
+        {/* Scroll-driven reading-progress rule; styled in globals.css. */}
+        <div className="reading-progress" aria-hidden />
+        <Link
+          href={`/categories/${post.Category.toLowerCase()}`}
+          className="text-(length:--font-size-small) uppercase tracking-[0.15em] text-accent-ink font-semibold hover:text-ink transition-colors"
           data-pagefind-filter="category"
           data-pagefind-meta="category"
         >
           {post.Category}
-        </p>
+        </Link>
         <h1 className="font-headline text-(length:--font-size-h1) font-normal text-ink mt-ed-sm leading-[1.1] tracking-[-0.015em]">
           {post.title}
         </h1>
@@ -73,7 +77,9 @@ export default async function PostPage({
         <div className="flex items-center gap-ed-md mt-ed-md text-(length:--font-size-micro) uppercase tracking-[0.15em] text-silver">
           <span>By Auxesis</span>
           <span aria-hidden>&middot;</span>
-          <span data-pagefind-meta="date">{date}</span>
+          <time dateTime={post.date} data-pagefind-meta="date">{date}</time>
+          <span aria-hidden>&middot;</span>
+          <span>{minutes} min read</span>
         </div>
         <div className="h-[2px] bg-ink mt-ed-lg" />
         <div className="h-px bg-ink mt-[3px] mb-ed-xl" />
@@ -114,7 +120,7 @@ export default async function PostPage({
           {post.tags.map((tag, i) => (
             <span key={tag}>
               {i > 0 && ", "}
-              <Link href={`/tags/${tag}`} className="hover:text-accent-ink hover:underline">
+              <Link href={`/tags/${tag}`} className="ink-link hover:text-accent-ink">
                 {tag}
               </Link>
             </span>
@@ -122,7 +128,7 @@ export default async function PostPage({
         </p>
 
         {relatedPosts.length > 0 && (
-          <div className="mt-ed-xl">
+          <div className="mt-ed-xl reveal">
             <h2 className="font-headline text-(length:--font-size-h2) font-medium text-ink tracking-[-0.01em]">
               Related dispatches
             </h2>

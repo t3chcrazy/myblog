@@ -28,7 +28,7 @@ export function AsideIndex({ title, posts }: { title: string; posts: Post[] }) {
               {post.Category}
             </span>
           </div>
-          <h4 className="font-headline text-(length:--font-size-body) font-semibold text-ink mt-1 group-hover:underline decoration-1 underline-offset-4">
+          <h4 className="font-headline text-(length:--font-size-body) font-semibold text-ink mt-1 ink-link-target">
             {post.title}
           </h4>
         </Link>

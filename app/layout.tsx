@@ -35,8 +35,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body className="min-h-full flex flex-col bg-paper text-ink">
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-ed-sm focus:left-ed-sm focus:z-50 focus:bg-ink focus:text-paper focus:px-ed-md focus:py-ed-xs text-(length:--font-size-small) uppercase tracking-[0.15em]"
+        >
+          Skip to content
+        </a>
         <Masthead />
-        <main className="flex-1" data-pagefind-body>
+        <main id="main" className="flex-1" data-pagefind-body>
           {children}
         </main>
         <Footer />

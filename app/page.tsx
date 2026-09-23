@@ -72,7 +72,7 @@ export default function Home() {
       {sameDomainOlder.length > 0 && (
         <>
           <Divider />
-          <section>
+          <section className="reveal">
             <h2 className="font-headline text-(length:--font-size-h2) font-medium text-ink tracking-[-0.01em]">
               More from {lead.Category}
             </h2>

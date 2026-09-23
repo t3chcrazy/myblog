@@ -191,3 +191,157 @@ p {
     animation-delay: 0s !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Polish & micro-motion. Everything below is CSS-only and progressive: it
+   degrades to static styling where unsupported, and prefers-reduced-motion
+   switches it off entirely (see the block at the end of this file).
+   ------------------------------------------------------------------------- */
+
+::selection {
+  background-color: color-mix(in oklab, var(--color-accent) 45%, transparent);
+  color: var(--color-ink);
+}
+
+/* One consistent, visible keyboard focus ring in the accent ink. */
+:focus-visible {
+  outline: 2px solid var(--color-accent-ink);
+  outline-offset: 3px;
+}
+
+html {
+  scroll-padding-top: 1.5rem;
+}
+
+/* Underline that inks in on hover rather than snapping on — reads like a
+   pen stroke. Use `ink-link` on a link, or `ink-link-target` inside a
+   `group` link to underline just the headline. */
+.ink-link,
+.ink-link-target {
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  text-decoration-color: transparent;
+  transition: text-decoration-color 200ms ease, color 200ms ease;
+}
+.ink-link:hover,
+.group:hover .ink-link-target,
+.group:focus-visible .ink-link-target {
+  text-decoration-color: currentColor;
+}
+
+/* Arrow on "Continue reading →" / "All Web →" nudges toward its target. */
+.nudge {
+  display: inline-block;
+  transition: translate 200ms ease;
+}
+.group:hover .nudge,
+.group:focus-visible .nudge {
+  translate: 3px 0;
+}
+.nudge-back {
+  display: inline-block;
+  transition: translate 200ms ease;
+}
+.group:hover .nudge-back,
+.group:focus-visible .nudge-back {
+  translate: -3px 0;
+}
+
+/* Press-plate images: a slow, slight push-in plus a little colour coming
+   back on hover, as if the plate were lifted to the light. */
+.press-photo {
+  transition:
+    scale 600ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    filter 400ms ease;
+}
+.group:hover .press-photo,
+.group\/lead:hover .press-photo {
+  scale: 1.03;
+  filter: saturate(0.85) contrast(1.08);
+}
+
+/* Reading progress: a hairline in accent ink along the top of the viewport
+   that fills as the article scrolls. Pure CSS scroll-driven animation; in
+   browsers without it the element simply stays hidden. */
+.reading-progress {
+  display: none;
+}
+@supports (animation-timeline: scroll()) {
+  .reading-progress {
+    display: block;
+    position: fixed;
+    inset: 0 0 auto 0;
+    height: 2px;
+    z-index: 40;
+    background-color: var(--color-accent-ink);
+    transform-origin: 0 50%;
+    scale: 0 1;
+    animation: reading-progress linear both;
+    animation-timeline: scroll(root block);
+  }
+}
+@keyframes reading-progress {
+  to {
+    scale: 1 1;
+  }
+}
+
+/* Sections further down the page ease in as they scroll into view. Only
+   the entry phase animates, so anything already on screen at load is
+   fully visible. */
+@supports (animation-timeline: view()) {
+  .reveal {
+    animation: reveal linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 60%;
+  }
+}
+@keyframes reveal {
+  from {
+    opacity: 0;
+    translate: 0 16px;
+  }
+}
+
+/* Search dialog: backdrop fades in, sheet settles down into place. */
+.search-backdrop {
+  transition: opacity 180ms ease;
+  @starting-style {
+    opacity: 0;
+  }
+}
+.search-sheet {
+  transition:
+    opacity 200ms ease,
+    translate 240ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  @starting-style {
+    opacity: 0;
+    translate: 0 -8px;
+  }
+}
+
+/* Heading anchors inside the article body. */
+.editorial-body :is(h2, h3)[id] {
+  scroll-margin-top: 1.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Transitions only — the reading-progress bar is scroll-linked, not
+     timed motion, so it keeps working. */
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
+  }
+  .reveal {
+    animation: none;
+  }
+  .group:hover .press-photo,
+  .group\/lead:hover .press-photo {
+    scale: none;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}

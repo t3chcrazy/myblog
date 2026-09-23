@@ -141,6 +141,7 @@ export function Search() {
           <button
             type="button"
             onClick={() => setOpen(true)}
+            aria-haspopup="dialog"
             className="flex items-center w-full max-w-2xl mx-auto border border-hairline bg-paper px-ed-md py-ed-xs text-left hover:border-ink transition-colors cursor-pointer"
           >
             <span className="text-charcoal mr-ed-sm" aria-hidden>
@@ -159,11 +160,14 @@ export function Search() {
       {open &&
         createPortal(
           <div
-            className="fixed inset-0 z-50 bg-ink/40 backdrop-blur-sm flex items-start justify-center p-gutter overflow-y-auto"
+            className="search-backdrop fixed inset-0 z-50 bg-ink/40 backdrop-blur-sm flex items-start justify-center p-gutter overflow-y-auto"
             onClick={close}
           >
           <div
-            className="relative w-full max-w-3xl my-auto bg-paper border border-ink"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Search posts"
+            className="search-sheet relative w-full max-w-3xl my-auto bg-paper border border-ink"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-ed-md py-ed-sm border-b border-ink bg-paper-raised">
@@ -196,6 +200,7 @@ export function Search() {
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={onInputKeyDown}
                   placeholder="Search posts by keyword or topic..."
+                  aria-label="Search posts"
                   className="flex-1 bg-transparent text-(length:--font-size-h3) font-headline text-ink focus:outline-none"
                 />
                 {visibleResults.length > 0 && (

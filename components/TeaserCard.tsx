@@ -14,7 +14,8 @@ function formatDate(date: string) {
 // Vintage-press treatment: desaturated + slightly higher contrast, so a
 // generated photo/illustration reads like a halftone newspaper plate
 // rather than a modern full-color image.
-const PRESS_PHOTO_FILTER = "saturate-[0.65] contrast-[1.08]";
+// `press-photo` (globals.css) adds the hover push-in and colour lift.
+const PRESS_PHOTO_FILTER = "saturate-[0.65] contrast-[1.08] press-photo";
 
 export function TeaserCard({
   post,
@@ -43,15 +44,18 @@ export function TeaserCard({
         <p className="text-(length:--font-size-small) uppercase tracking-[0.15em] text-accent-ink font-semibold">
           {post.Category}
         </p>
-        <h3 className="font-headline text-(length:--font-size-h1) font-normal text-ink mt-ed-sm leading-[1.1] tracking-[-0.015em] group-hover:underline decoration-1 underline-offset-4">
+        <h3 className="font-headline text-(length:--font-size-h1) font-normal text-ink mt-ed-sm leading-[1.1] tracking-[-0.015em] ink-link-target">
           {post.title}
         </h3>
         <p className="font-headline italic text-(length:--font-size-lead) text-charcoal mt-ed-md max-w-xl">
           {post.dek}
         </p>
-        <p className="text-(length:--font-size-micro) uppercase tracking-[0.15em] text-silver mt-ed-md">
+        <time
+          dateTime={post.date}
+          className="block text-(length:--font-size-micro) uppercase tracking-[0.15em] text-silver mt-ed-md"
+        >
           {formatDate(post.date)}
-        </p>
+        </time>
       </Link>
     );
   }
@@ -78,16 +82,19 @@ export function TeaserCard({
         </ViewTransition>
       )}
       <span className="min-w-0">
-        <span className="font-headline text-(length:--font-size-h3) font-semibold text-ink group-hover:underline decoration-1 underline-offset-4">
+        <span className="font-headline text-(length:--font-size-h3) font-semibold text-ink ink-link-target">
           {post.title}
         </span>
         <span className="block font-headline italic text-(length:--font-size-body) text-charcoal mt-1">
           {post.dek}
         </span>
       </span>
-      <span className="text-(length:--font-size-micro) uppercase tracking-wide text-silver shrink-0 lg:ml-auto self-start">
+      <time
+        dateTime={post.date}
+        className="text-(length:--font-size-micro) uppercase tracking-wide text-silver shrink-0 lg:ml-auto self-start"
+      >
         {formatDate(post.date)}
-      </span>
+      </time>
     </Link>
   );
 }

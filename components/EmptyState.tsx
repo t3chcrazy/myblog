@@ -28,9 +28,9 @@ export function EmptyState({
       </p>
       <Link
         href={actionHref}
-        className="text-(length:--font-size-micro) uppercase tracking-[0.15em] text-accent-ink hover:text-ink mt-ed-lg"
+        className="group text-(length:--font-size-micro) uppercase tracking-[0.15em] text-accent-ink hover:text-ink transition-colors mt-ed-lg"
       >
-        &larr; {actionLabel}
+        <span className="nudge-back" aria-hidden>&larr;</span> {actionLabel}
       </Link>
     </div>
   );

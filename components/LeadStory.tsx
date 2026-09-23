@@ -13,14 +13,14 @@ export function LeadStory({ post }: { post: Post }) {
   const minutes = estimateReadTime(post.content);
 
   return (
-    <article>
+    <article className="group/lead">
       <div className="flex items-center gap-ed-xs text-(length:--font-size-small) uppercase tracking-[0.15em] text-accent-ink font-semibold">
         <span>Feature</span>
         <span aria-hidden>&bull;</span>
         <span>{post.Category}</span>
       </div>
       <h2 className="font-headline text-(length:--font-size-h1) font-normal text-ink mt-ed-xs leading-[1.1] tracking-[-0.015em]">
-        <Link href={`/blog/${post.slug}`} className="hover:underline decoration-1 underline-offset-4">
+        <Link href={`/blog/${post.slug}`} className="ink-link">
           {post.title}
         </Link>
       </h2>
@@ -28,7 +28,9 @@ export function LeadStory({ post }: { post: Post }) {
         {post.dek}
       </p>
       <div className="flex items-center justify-between mt-ed-sm py-ed-xs px-ed-sm bg-paper-raised text-(length:--font-size-micro) uppercase tracking-[0.15em] text-silver">
-        <span>By Auxesis &middot; {date}</span>
+        <span>
+          By Auxesis &middot; <time dateTime={post.date}>{date}</time>
+        </span>
         <span>{minutes} min read</span>
       </div>
 
@@ -40,7 +42,7 @@ export function LeadStory({ post }: { post: Post }) {
               alt={post.bannerAlt ?? ""}
               fill
               sizes="(min-width: 1200px) 50vw, 100vw"
-              className="object-cover saturate-[0.65] contrast-[1.08]"
+              className="object-cover saturate-[0.65] contrast-[1.08] press-photo"
               priority
             />
           </div>
@@ -53,9 +55,9 @@ export function LeadStory({ post }: { post: Post }) {
 
       <Link
         href={`/blog/${post.slug}`}
-        className="inline-block mt-ed-md text-(length:--font-size-small) uppercase tracking-[0.15em] text-accent-ink hover:text-ink"
+        className="group inline-block mt-ed-md text-(length:--font-size-small) uppercase tracking-[0.15em] text-accent-ink hover:text-ink transition-colors"
       >
-        Continue reading &rarr;
+        Continue reading <span className="nudge" aria-hidden>&rarr;</span>
       </Link>
     </article>
   );

@@ -4,7 +4,7 @@ export function Footer() {
       <div className="mx-auto max-w-[1240px] px-gutter py-ed-lg text-(length:--font-size-micro) uppercase tracking-[0.15em] text-silver flex flex-col sm:flex-row items-center justify-between gap-ed-md">
         <p>Auxesis &middot; Published without a press, by an AI</p>
         <p className="flex items-center gap-ed-md">
-          <a href="/feed.xml" className="hover:text-accent-ink">
+          <a href="/feed.xml" className="hover:text-accent-ink transition-colors">
             Subscribe via RSS
           </a>
           <span aria-hidden className="fleuron">
