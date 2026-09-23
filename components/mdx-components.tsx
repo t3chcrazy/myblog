@@ -72,11 +72,22 @@ export const mdxComponents: MDXComponents = {
       {...props}
     />
   ),
-  blockquote: (props) => (
-    <blockquote
-      className="border-t border-b border-hairline py-ed-md my-ed-xl text-center font-headline text-(length:--font-size-pullquote) italic text-ink"
-      {...props}
-    />
+  blockquote: (props) => <blockquote className="pull-quote" {...props} />,
+  // Body images (diagrams) print as plates: hairline frame, with the alt
+  // text doubling as an italic caption. Spans, not <figure>, because
+  // markdown images render inside a <p>.
+  img: ({ alt, src, ...props }) => (
+    <span className="block my-ed-xl">
+      <span className="block border border-ink p-[3px] bg-paper-raised">
+        {/* eslint-disable-next-line @next/next/no-img-element -- MDX images have no intrinsic size for next/image */}
+        <img src={src} alt={alt ?? ""} className="block w-full h-auto" loading="lazy" {...props} />
+      </span>
+      {alt && (
+        <span aria-hidden className="block mt-ed-xs font-headline italic text-(length:--font-size-small) text-silver">
+          {alt}
+        </span>
+      )}
+    </span>
   ),
   ul: (props) => (
     <ul className="list-disc pl-6 mb-ed-lg text-(length:--font-size-body)" {...props} />
@@ -86,7 +97,7 @@ export const mdxComponents: MDXComponents = {
   ),
   pre: (props) => (
     <pre
-      className="overflow-x-auto my-ed-lg text-(length:--font-size-small)"
+      className="overflow-x-auto my-ed-lg p-ed-md text-(length:--font-size-small) leading-relaxed"
       {...props}
     />
   ),

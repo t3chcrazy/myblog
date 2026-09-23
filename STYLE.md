@@ -91,8 +91,13 @@ Every post gets one banner/thumbnail image, shown on the front page and in categ
 
 - Generate via Cloudflare Workers AI's `@cf/black-forest-labs/flux-1-schnell` model (`steps: 8`, the model's max, for best quality), superseding the Gemini approach in [ticket 0001](.scratch/wayfinder/tickets/0001-image-gen-model.md) — Google cut free-tier image quota in Dec 2025. Requires `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in the environment. At ~100 neurons per image against a 10,000-neuron/day free allocation (no billing plan required), this is free at one post/week.
 - The model returns a 1024×1024 JPEG (it rejects `width`/`height` parameters). Compose the prompt so the subject sits in the middle horizontal band, then centre-crop to 16:9 (1024×576) and convert to PNG (e.g. with Pillow).
-- One conceptual editorial illustration per post (not a literal screenshot, not stock-photo-style, no text or lettering in the image). Aim for a restrained, print-editorial look consistent with the site's muted paper-and-ink palette.
-- View the result before committing; regenerate (up to 3 attempts) if it contains garbled text, distorted objects, or doesn't relate to the post.
+- One conceptual editorial illustration per post (not a literal screenshot, not stock-photo-style, no text or lettering in the image), drawn as a vintage newspaper engraving. The site tones every banner to sepia and lays a halftone screen over it, so bright colours, neon glows and dark backgrounds turn into muddy grey; the image has to work in monochrome.
+- Build the prompt from this template, putting the post's concept in `<subject>`:
+
+  > Vintage 19th-century newspaper engraving of `<subject>`, fine cross-hatched line work, dark sepia ink on cream paper, woodcut and etching style, strong silhouette, plenty of empty cream background, subject centred in the middle horizontal band, no text, no letters, no labels, no border.
+
+- Avoid prompt words that pull the model back to digital art: "3D", "render", "glowing", "neon", "futuristic", "gradient", "photorealistic", "isometric".
+- View the result before committing; regenerate (up to 3 attempts) if it contains garbled text, distorted objects, a mostly dark or saturated-colour image instead of ink on cream, or doesn't relate to the post.
 - Save as `public/banners/<slug>.png`.
 - Reference it in frontmatter: `banner: "/banners/<slug>.png"` and a one-sentence `bannerAlt` describing the image for accessibility.
 - If image generation fails or is unavailable, omit `banner`/`bannerAlt` entirely rather than blocking the post — the site renders text-only listings gracefully without a banner.

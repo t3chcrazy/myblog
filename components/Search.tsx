@@ -38,6 +38,25 @@ function toRoutePath(pagefindUrl: string): string {
   return pagefindUrl;
 }
 
+// Line-drawn magnifier in ink, in place of the colour emoji.
+function MagnifierIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 20 20"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      className={`shrink-0 ${className ?? ""}`}
+    >
+      <circle cx="8.5" cy="8.5" r="5.5" />
+      <path d="m13 13 4.5 4.5" strokeLinecap="square" />
+    </svg>
+  );
+}
+
 let pagefindPromise: Promise<PagefindModule> | null = null;
 
 function loadPagefind() {
@@ -119,6 +138,7 @@ export function Search() {
   }, [open, query, category]);
 
   const visibleResults = query.trim().length >= 2 ? results : [];
+  const issuesIndexed = Object.values(categoryCounts).reduce((a, b) => a + b, 0);
 
   function onInputKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Escape") {
@@ -137,16 +157,17 @@ export function Search() {
   return (
     <>
       <div className="border-b border-hairline bg-paper-raised">
-        <div className="mx-auto max-w-[1240px] px-gutter py-ed-xs">
+        <div className="mx-auto max-w-[1240px] px-gutter py-ed-xs flex items-center gap-ed-md">
+          <span className="hidden desktop:block w-44 shrink-0 label-caps text-accent-ink">
+            <span aria-hidden>&para;</span> Index Telegraph
+          </span>
           <button
             type="button"
             onClick={() => setOpen(true)}
             aria-haspopup="dialog"
             className="flex items-center w-full max-w-2xl mx-auto border border-hairline bg-paper px-ed-md py-ed-xs text-left hover:border-ink transition-colors cursor-pointer"
           >
-            <span className="text-charcoal mr-ed-sm" aria-hidden>
-              &#128269;
-            </span>
+            <MagnifierIcon className="text-charcoal mr-ed-sm" />
             <span className="flex-1 text-(length:--font-size-body) text-silver truncate">
               Search dispatches, topics, or tags&hellip;
             </span>
@@ -154,45 +175,51 @@ export function Search() {
               &#8984;K
             </kbd>
           </button>
+          <span className="hidden desktop:block w-44 shrink-0 text-right text-(length:--font-size-micro) font-semibold uppercase tracking-[0.08em] text-silver">
+            Search archive &amp; index
+          </span>
         </div>
       </div>
 
       {open &&
         createPortal(
           <div
-            className="search-backdrop fixed inset-0 z-50 bg-ink/40 backdrop-blur-sm flex items-start justify-center p-gutter overflow-y-auto"
+            className="search-backdrop fixed inset-0 z-50 bg-ink/45 flex items-start justify-center p-gutter overflow-y-auto"
             onClick={close}
           >
           <div
             role="dialog"
             aria-modal="true"
             aria-label="Search posts"
-            className="search-sheet relative w-full max-w-3xl my-auto bg-paper border border-ink"
+            className="search-sheet crop-marks relative w-full max-w-3xl my-auto bg-paper ear"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-ed-md py-ed-sm border-b border-ink bg-paper-raised">
-              <div>
-                <span className="block text-(length:--font-size-small) uppercase tracking-[0.15em] text-ink font-semibold">
-                  Auxesis &middot; Archival Index
+              <div className="flex items-start gap-ed-sm">
+                <span className="fleuron leading-none mt-[2px]" aria-hidden>
+                  &#9670;
                 </span>
-                <span className="block text-(length:--font-size-micro) uppercase tracking-wide text-silver">
-                  Indexed via Pagefind &middot; searched locally, no server round-trip
-                </span>
+                <div>
+                  <span className="block label-caps text-ink">
+                    Auxesis &bull; Archival Index Dispatch
+                  </span>
+                  <span className="block text-(length:--font-size-micro) font-semibold uppercase tracking-[0.08em] text-silver">
+                    Indexed via Pagefind &bull; searched locally, no server round-trip
+                  </span>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={close}
-                className="text-(length:--font-size-micro) uppercase tracking-wide text-charcoal hover:text-accent-ink"
+                className="shrink-0 border border-ink px-ed-sm py-[2px] text-(length:--font-size-micro) font-semibold uppercase tracking-[0.08em] text-ink hover:bg-ink hover:text-paper transition-colors"
               >
                 Esc to close
               </button>
             </div>
 
             <div className="p-ed-md">
-              <div className="flex items-center border-2 border-ink bg-paper px-ed-md py-ed-sm">
-                <span className="text-accent-ink mr-ed-sm" aria-hidden>
-                  &#128269;
-                </span>
+              <div className="flex items-center border-2 border-ink focus-within:border-accent-ink bg-paper px-ed-md py-ed-sm transition-colors">
+                <MagnifierIcon className="text-accent-ink mr-ed-sm" />
                 <input
                   ref={inputRef}
                   type="text"
@@ -204,8 +231,13 @@ export function Search() {
                   className="flex-1 bg-transparent text-(length:--font-size-h3) font-headline text-ink focus:outline-none"
                 />
                 {visibleResults.length > 0 && (
-                  <span className="hidden sm:inline text-(length:--font-size-micro) uppercase tracking-wide text-silver whitespace-nowrap ml-ed-md">
+                  <span className="hidden sm:inline border border-accent-ink/40 bg-accent/15 px-ed-sm py-[2px] text-(length:--font-size-micro) font-semibold uppercase tracking-[0.08em] text-accent-ink whitespace-nowrap ml-ed-md">
                     {visibleResults.length} results in {elapsedMs}ms
+                  </span>
+                )}
+                {issuesIndexed > 0 && (
+                  <span className="hidden sm:inline text-(length:--font-size-micro) font-semibold uppercase tracking-[0.08em] text-silver whitespace-nowrap ml-ed-md">
+                    {issuesIndexed} dispatches indexed
                   </span>
                 )}
               </div>
@@ -219,19 +251,19 @@ export function Search() {
 
               {query.trim().length >= 2 && (
                 <div className="flex flex-wrap items-center gap-ed-xs mt-ed-md pb-ed-sm border-b border-hairline">
-                  <span className="text-(length:--font-size-micro) uppercase tracking-wide text-silver mr-ed-xs">
-                    Section:
+                  <span className="text-(length:--font-size-micro) font-semibold uppercase tracking-[0.08em] text-silver mr-ed-xs">
+                    Facets:
                   </span>
                   <button
                     type="button"
                     onClick={() => setCategory(null)}
-                    className={`text-(length:--font-size-micro) uppercase tracking-wide px-ed-sm py-[2px] border ${
+                    className={`label-caps px-ed-sm py-[2px] border ${
                       category === null
                         ? "bg-ink text-paper border-ink"
                         : "border-hairline text-charcoal hover:border-ink"
                     }`}
                   >
-                    All
+                    All ({issuesIndexed})
                   </button>
                   {CATEGORIES.map((c) => {
                     const count = categoryCounts[c] ?? 0;
@@ -241,7 +273,7 @@ export function Search() {
                         type="button"
                         disabled={count === 0}
                         onClick={() => setCategory(c)}
-                        className={`text-(length:--font-size-micro) uppercase tracking-wide px-ed-sm py-[2px] border ${
+                        className={`label-caps px-ed-sm py-[2px] border ${
                           category === c
                             ? "bg-ink text-paper border-ink"
                             : count === 0
@@ -264,9 +296,9 @@ export function Search() {
                         href={toRoutePath(result.url)}
                         onClick={close}
                         onMouseEnter={() => setSelected(i)}
-                        className={`block py-ed-sm px-ed-xs ${i === selected ? "bg-paper-raised" : ""}`}
+                        className={`block py-ed-sm px-ed-sm border-l-2 ${i === selected ? "bg-paper-raised border-accent-ink" : "border-transparent"}`}
                       >
-                        <div className="flex items-center gap-ed-xs text-(length:--font-size-micro) uppercase tracking-wide text-accent-ink font-semibold">
+                        <div className="flex items-center gap-ed-xs text-(length:--font-size-micro) uppercase tracking-[0.08em] text-accent-ink font-semibold">
                           {result.meta.category && <span>{result.meta.category}</span>}
                           {result.meta.date && (
                             <>
@@ -279,7 +311,7 @@ export function Search() {
                           {result.meta.title ?? result.url}
                         </span>
                         <span
-                          className="block text-(length:--font-size-small) text-charcoal mt-1"
+                          className="search-excerpt block text-(length:--font-size-small) text-charcoal mt-1 leading-relaxed"
                           dangerouslySetInnerHTML={{ __html: result.excerpt }}
                         />
                       </a>

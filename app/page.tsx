@@ -1,10 +1,8 @@
 import { ViewTransition } from "react";
-import { CATEGORIES, getAllPosts } from "@/lib/posts";
-import { CategorySection } from "@/components/CategorySection";
+import { getAllPosts } from "@/lib/posts";
 import { LeadStory } from "@/components/LeadStory";
-import { AsideIndex } from "@/components/AsideIndex";
-import { TeaserCard } from "@/components/TeaserCard";
-import { Divider } from "@/components/Divider";
+import { DeskWire, EditionIndex } from "@/components/FrontRails";
+import { DeskGrid } from "@/components/DeskGrid";
 import { EmptyState } from "@/components/EmptyState";
 
 export default function Home() {
@@ -24,82 +22,45 @@ export default function Home() {
     );
   }
 
-  // Other-domain posts, most recent first, split across the two asides.
-  const otherDomainPosts = rest.filter((post) => post.Category !== lead.Category);
-  const leftAside = otherDomainPosts.filter((_, i) => i % 2 === 0).slice(0, 3);
-  const rightAside = otherDomainPosts.filter((_, i) => i % 2 === 1).slice(0, 3);
-
-  // Older posts in the lead's own category, shown directly beneath it.
-  const sameDomainOlder = rest.filter((post) => post.Category === lead.Category);
-
-  // Remaining categories (excluding the lead's), for the sections further down.
-  const otherCategories = CATEGORIES.filter((c) => c !== lead.Category);
-
-  const hasLeft = leftAside.length > 0;
-  const hasRight = rightAside.length > 0;
-  // Don't reserve empty grid tracks for asides with nothing to show yet —
-  // the lead story expands to fill the space instead.
-  // Literal class strings (not interpolated) so Tailwind's static scanner
-  // can find and generate them.
-  const leadColSpanClass =
-    hasLeft && hasRight
-      ? "tablet:col-span-6"
-      : hasLeft || hasRight
-        ? "tablet:col-span-9"
-        : "tablet:col-span-12";
+  const indexed = rest.slice(0, 5);
 
   return (
     <ViewTransition enter="page-enter" exit="page-exit">
-    <div className="mx-auto max-w-[1240px] px-gutter pt-ed-lg pb-ed-xl">
-      <div className="grid grid-cols-1 tablet:grid-cols-12 gap-gutter">
-        {hasLeft && (
-          <aside className="tablet:col-span-3 order-2 tablet:order-1">
-            <AsideIndex title="Also in this edition" posts={leftAside} />
-          </aside>
-        )}
+      <div className="mx-auto max-w-[1240px] px-gutter pt-ed-lg pb-ed-xl">
+        <p className="text-center label-caps text-accent-ink">
+          Front Page Dispatch <span aria-hidden>&bull;</span> This Week&rsquo;s Edition
+        </p>
+        <div className="h-px bg-hairline mt-ed-sm mb-ed-lg" />
 
-        <div className={`order-1 tablet:order-2 ${leadColSpanClass}`}>
-          <LeadStory post={lead} />
+        {/* Broadsheet split: wire briefs | lead story | index + circulation,
+            divided by vertical hairlines. Tablet puts the lead beside the
+            index and drops the wire underneath. */}
+        <div className="grid grid-cols-1 tablet:grid-cols-8 desktop:grid-cols-12 gap-y-ed-xl">
+          <div className="tablet:col-span-5 desktop:col-span-6 desktop:order-2 tablet:pr-ed-lg desktop:px-ed-lg desktop:border-x desktop:border-hairline">
+            <LeadStory post={lead} />
+          </div>
+          <aside className="tablet:col-span-3 desktop:order-3 tablet:pl-ed-lg tablet:border-l tablet:border-hairline desktop:border-l-0">
+            <EditionIndex posts={indexed} />
+          </aside>
+          <aside className="tablet:col-span-8 desktop:col-span-3 desktop:order-1 desktop:pr-ed-lg">
+            <DeskWire
+              posts={posts}
+              leadSlug={lead.slug}
+              indexSlugs={indexed.map((p) => p.slug)}
+            />
+          </aside>
         </div>
 
-        {hasRight && (
-          <aside className="tablet:col-span-3 order-3">
-            <AsideIndex title="Elsewhere this week" posts={rightAside} />
-          </aside>
-        )}
+        <div className="flex justify-center items-center gap-ed-sm mt-ed-xl label-caps text-silver" aria-hidden>
+          <span className="fleuron">&para;</span>
+          <span>Concluded on the front page</span>
+          <span className="fleuron">&para;</span>
+        </div>
+
+        <div className="mt-ed-xl">
+          <DeskGrid posts={rest} />
+        </div>
       </div>
-
-      {sameDomainOlder.length > 0 && (
-        <>
-          <Divider />
-          <section className="reveal">
-            <h2 className="font-headline text-(length:--font-size-h2) font-medium text-ink tracking-[-0.01em]">
-              More from {lead.Category}
-            </h2>
-            <div className="h-px bg-ink mt-ed-sm" />
-            <div className="mt-ed-md">
-              {sameDomainOlder.slice(0, 4).map((post) => (
-                <TeaserCard key={post.slug} post={post} variant="row" />
-              ))}
-            </div>
-          </section>
-        </>
-      )}
-
-      {otherCategories.map((category, i) => {
-        const categoryPosts = rest
-          .filter((post) => post.Category === category)
-          .slice(0, 4);
-        if (categoryPosts.length === 0) return null;
-
-        return (
-          <div key={category}>
-            <Divider fleuron={i === 0} />
-            <CategorySection category={category} posts={categoryPosts} />
-          </div>
-        );
-      })}
-    </div>
     </ViewTransition>
   );
 }

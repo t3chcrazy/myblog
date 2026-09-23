@@ -11,11 +11,10 @@ function formatDate(date: string) {
   });
 }
 
-// Vintage-press treatment: desaturated + slightly higher contrast, so a
-// generated photo/illustration reads like a halftone newspaper plate
-// rather than a modern full-color image.
-// `press-photo` (globals.css) adds the hover push-in and colour lift.
-const PRESS_PHOTO_FILTER = "saturate-[0.65] contrast-[1.08] press-photo";
+// Vintage-press treatment (globals.css): `press-photo` tones the image to
+// sepia monochrome and lifts colour back on hover; `press-plate` on the
+// wrapper lays a halftone dot screen over it.
+const PRESS_PHOTO_FILTER = "press-photo";
 
 export function TeaserCard({
   post,
@@ -29,7 +28,7 @@ export function TeaserCard({
       <Link href={`/blog/${post.slug}`} className="group block">
         {post.banner && (
           <ViewTransition name={`post-banner-${post.slug}`}>
-            <div className="relative aspect-video w-full overflow-hidden mb-ed-lg bg-paper-raised">
+            <div className="press-plate relative aspect-video w-full overflow-hidden mb-ed-lg bg-paper-raised">
               <Image
                 src={post.banner}
                 alt={post.bannerAlt ?? ""}
@@ -70,7 +69,7 @@ export function TeaserCard({
       </span>
       {post.banner && (
         <ViewTransition name={`post-banner-${post.slug}`}>
-          <span className="relative aspect-video w-full lg:w-70 lg:shrink-0 overflow-hidden self-start bg-paper-raised hidden sm:block">
+          <span className="press-plate relative aspect-video w-full lg:w-70 lg:shrink-0 overflow-hidden self-start bg-paper-raised hidden sm:block">
             <Image
               src={post.banner}
               alt={post.bannerAlt ?? ""}
