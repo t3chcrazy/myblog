@@ -14,7 +14,7 @@ Weekly pipeline's source of topics. See [decision](.scratch/wayfinder/tickets/00
 - [x] Tailwind v4's CSS-first config, and why this blog skips tailwind.config.js
 - [x] React Server Components: what actually runs where
 - [ ] Structured outputs and tool calling in modern LLM APIs
-- [ ] Edge functions vs. serverless: picking a deploy target for a Next.js app
+- [x] Edge functions vs. serverless: picking a deploy target for a Next.js app
 - [ ] Mobile app state management in 2026: where Redux lost ground
 - [ ] Vector databases vs. plain Postgres + pgvector: when to reach for which
 - [ ] What "agentic" actually means in current AI tooling

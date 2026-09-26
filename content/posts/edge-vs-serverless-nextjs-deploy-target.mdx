@@ -1,0 +1,64 @@
+---
+title: "Edge vs. serverless for Next.js after Edge Runtime's deprecation"
+slug: edge-vs-serverless-nextjs-deploy-target
+date: "2026-09-26"
+Category: Web
+dek: "Next.js 16.3 deprecated the edge runtime everywhere. The real decision left is which platform to deploy to, not which runtime APIs you can call."
+tags: ["nextjs", "deployment", "performance", "serverless"]
+banner: "/banners/edge-vs-serverless-nextjs-deploy-target.png"
+bannerAlt: "Editorial engraving of a railway signal tower where the tracks fork, one curving toward a lighthouse on a distant rock, the other running straight to a depot building, representing a deploy-target decision."
+---
+
+Next.js 16.3 deprecated `export const runtime = 'edge'` on every route file, and the file convention that used to guarantee edge execution, `middleware.ts`, has been renamed to `proxy.ts` and locked to Node.js, full stop ([Next.js 16 upgrade guide](https://nextjs.org/docs/app/guides/upgrading/version-16#middleware-to-proxy)). The choice between "edge" and "serverless" that used to live in a one-line export in your code is gone from the framework. What's left is a choice about which platform you deploy to, and the docs don't say plainly that this is now an infrastructure decision rather than a runtime one, or that the reasoning behind it changes what "edge" should mean to you at all.
+
+## What changed in Next.js 16.3
+
+Before this release, any page, layout, or route handler could opt into the Edge Runtime, a V8-isolate environment with a restricted set of Web APIs and no filesystem or native Node.js access, in exchange for global distribution and no cold starts. As of 16.3, that export produces a deprecation warning instead of a runtime switch. Building a route with `runtime = 'edge'` against Next.js 16.3.5 confirms this directly:
+
+```text
+⚠ The Edge Runtime is deprecated. You can use the "nodejs" runtime instead. Learn more: https://nextjs.org/docs/messages/edge-runtime-deprecated
+⚠ Using edge runtime on a page currently disables static generation for that page
+```
+
+The build still succeeds and the route still renders; it runs on Node.js regardless of what you asked for. [Next.js's deprecation notice](https://nextjs.org/docs/messages/edge-runtime-deprecated) is unambiguous about the fix: "Remove the `runtime` export from your route files... The Node.js runtime is the default, so no replacement is needed."
+
+`proxy.ts`, the replacement for `middleware.ts` introduced in Next.js 16.0, goes further and refuses the option outright. Setting `runtime = 'edge'` in a `proxy.ts` file against 16.3.5 fails the build:
+
+```text
+Error: Route segment config is not allowed in Proxy file at "./proxy.ts".
+Proxy always runs on Node.js runtime.
+Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+```
+
+The [Proxy API reference](https://nextjs.org/docs/app/api-reference/file-conventions/proxy#runtime) confirms this is by design: "Proxy defaults to using the Node.js runtime. The `runtime` config option is not available in Proxy files. Setting the `runtime` config option in Proxy will throw an error." Renaming `middleware` to `proxy` was partly about that Node.js default: the [migration notice](https://nextjs.org/docs/messages/middleware-to-proxy) explains the old name got confused with Express-style middleware and encouraged overuse of a feature "recommended to be used as a last resort."
+
+The one exception is legacy `middleware.ts` files, which still build with `runtime = 'experimental-edge'` (the plain `'edge'` value now errors there too, asking for the experimental one instead). Next.js's own [version-16 upgrade guide](https://nextjs.org/docs/app/guides/upgrading/version-16#middleware-to-proxy) is explicit that this is a temporary bridge: "If you want to continue using the edge runtime, keep using middleware. We will follow up on a minor release with further edge runtime instructions." Every other file convention that used to accept a `runtime` export now has exactly one option.
+
+## Cold starts were never edge's only argument, and Vercel's own fix undercut it
+
+The deprecation only makes sense next to a change Vercel shipped to the platform underneath Next.js. [Fluid compute](https://vercel.com/docs/fluid-compute), enabled by default for new projects since April 2025, lets a single warm Node.js instance serve multiple concurrent invocations instead of spinning up a fresh isolate per request, and adds bytecode caching on Node.js 20+ so "subsequent requests benefit from the cached bytecode, enabling faster initialization." That was the Edge Runtime's headline selling point: no cold starts, because V8 isolates start faster than a Node.js process. Once Node.js functions stopped paying that cold-start tax on Vercel's own infrastructure, restricting a route to a smaller set of Web APIs bought you distribution but nothing else, and [Vercel's Edge Runtime docs](https://vercel.com/docs/functions/runtimes/edge) now open with a direct reversal: "We recommend migrating from edge to Node.js for improved performance and reliability. Both runtimes run on Fluid compute."
+
+There's a second, structural argument that predates Fluid compute and explains why edge distribution was oversold for typical app routes in the first place. As developer [yceffort](https://yceffort.kr/en/2026/03/nextjs-edge-runtime-rise-and-fall) lays out from production experience: an edge function running near a user in Seoul still has to reach a database that lives in one AWS region, so "the latency bottleneck was data access, not code execution." Worse, that cost compounds with every query a route makes: an N-query route pays the cross-region round trip N times on the edge, versus once up front and then local calls on a Node.js server colocated with the database. Running your code globally doesn't help when your data isn't global too, and most application data isn't.
+
+![Diagram comparing an edge function making N cross-ocean round trips to a database against a Node.js server making one long hop then N local calls next to the same database](/diagrams/edge-vs-serverless-nextjs-deploy-target-1.svg)
+
+## Three deploy targets, not two runtimes
+
+With the runtime flag gone, "edge vs. serverless" for a Next.js app now means picking a platform, and [Next.js's own deployment guide](https://nextjs.org/docs/app/getting-started/deploying) draws the line clearly: Node.js servers and Docker containers support "All" Next.js features; everything else falls under an "Adapters" column where support "varies."
+
+**Vercel**, unsurprisingly, is where the deprecation is most fully realized: Node.js on Fluid compute is the default, and Vercel is one of only two platforms Next.js currently lists as a [verified adapter](https://nextjs.org/docs/app/getting-started/deploying#verified-adapters), meaning it runs the framework's own compatibility test suite (the other is Bun). You get automatic regional failover, and, per Vercel's [Fluid compute docs](https://vercel.com/docs/fluid-compute), "unhandled exceptions won't crash other concurrent requests running on the same instance," addressing the obvious worry about sharing a process across requests.
+
+**Self-hosted Node.js or Docker** gets you the same "All" feature support with none of the platform lock-in, at the cost of owning your own scaling, regional replication, and cold starts. This is the honest baseline every other option is measured against.
+
+**Cloudflare Workers** is the genuinely edge-native option, and it's not standing still either. [`@opennextjs/cloudflare`](https://opennext.js.org/cloudflare) reached a stable release in early 2026 and runs Next.js's Node.js runtime, not a restricted subset, inside Workers, specifically distinguishing itself from the older `@cloudflare/next-on-pages`, "which only supports the 'Edge' runtime." Cloudflare has also shipped [vinext](https://github.com/cloudflare/vinext), a from-scratch, Vite-based reimplementation of the Next.js API surface built in-house, with Cloudflare Workers as its primary target. Its own numbers, from [vinext.dev](https://vinext.dev/): "~94% of the Next.js 16 API surface has full or partial support," alongside claims of "up to 2× faster production builds" and roughly 33% smaller client bundles versus Turbopack. Neither adapter is on Next.js's verified list yet; Cloudflare and Netlify are both, per the same deploying guide, "working on verified adapters built on the Adapter API," which means today's Cloudflare deployment runs on integrations the Next.js team hasn't independently tested against its own suite.
+
+## The trade-offs the platform pages don't lead with
+
+- **Cloudflare's Node.js compatibility is real but partial.** OpenNext runs actual Node.js APIs inside `workerd`, not the old fetch-only subset, but it's still a compatibility shim over a non-Node.js runtime, and it isn't a Next.js-verified adapter. Budget time for the edge cases that compatibility layers always have.
+- **vinext is new.** A ground-up reimplementation getting 94% API coverage is a serious engineering effort, but that remaining 6% includes Partial Prerendering and Cache Components, per its own [GitHub README](https://github.com/cloudflare/vinext). Treat it as promising, not production-default, until those gaps close.
+- **Fluid compute's shared-instance model is a different isolation story than Edge Runtime's per-request isolate.** Vercel's docs say an unhandled exception won't take down other concurrent requests on the same instance, but genuinely global state (a module-level cache, a counter) now persists across requests in a way a stateless edge function never permitted. Code that assumed a clean isolate per invocation needs a second look.
+- **Legacy `middleware.ts` on `experimental-edge` is living on borrowed time.** It works today, but Next.js has committed only to "further edge runtime instructions" in a future minor release, not to keeping the escape hatch indefinitely.
+
+## The decision, concretely
+
+If you're on Vercel, stop fighting the framework: drop `runtime = 'edge'` wherever it remains, since Node.js is the default and Fluid compute already closes the cold-start gap that justified the export. Reach for Cloudflare only when your workload has a reason to want data and compute in the same 300-odd cities Workers run in, such as reads against Cloudflare KV, D1, or R2, and default to `@opennextjs/cloudflare` for that today; it is Node.js-compatible and further along than vinext, which is worth piloting on a non-critical route rather than betting a production app on it while Cache Components support is still incomplete. And if you're self-hosting, you already have full feature parity. What you're buying with any edge platform is data locality and regional distribution, not a faster runtime. Spend the migration effort where the data lives, not where the code is theoretically allowed to run.
