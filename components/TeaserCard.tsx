@@ -21,8 +21,50 @@ export function TeaserCard({
   variant = "row",
 }: {
   post: Post;
-  variant?: "lead" | "row";
+  variant?: "lead" | "row" | "card";
 }) {
+  // Vertical card for grids (e.g. related posts under an article): image
+  // on top, text below, so neither side has to match the other's height.
+  if (variant === "card") {
+    return (
+      <Link href={`/blog/${post.slug}`} className="group flex flex-col">
+        {post.banner ? (
+          <ViewTransition name={`post-banner-${post.slug}`}>
+            <span className="press-plate relative block aspect-video w-full overflow-hidden bg-paper-raised mb-ed-md">
+              <Image
+                src={post.banner}
+                alt={post.bannerAlt ?? ""}
+                fill
+                sizes="(min-width: 1200px) 360px, (min-width: 768px) 45vw, 100vw"
+                className={`object-cover ${PRESS_PHOTO_FILTER}`}
+              />
+            </span>
+          </ViewTransition>
+        ) : (
+          // Blank plate keeps titles aligned across the grid row.
+          <span
+            aria-hidden
+            className="flex aspect-video w-full items-center justify-center bg-paper-raised mb-ed-md text-(length:--font-size-h2) text-silver"
+          >
+            &#10086;
+          </span>
+        )}
+        <span className="flex items-baseline justify-between gap-ed-sm text-(length:--font-size-micro) uppercase tracking-[0.15em]">
+          <span className="text-accent-ink font-semibold">{post.Category}</span>
+          <time dateTime={post.date} className="text-silver">
+            {formatDate(post.date)}
+          </time>
+        </span>
+        <span className="block font-headline text-(length:--font-size-h3) font-semibold text-ink mt-ed-sm leading-[1.2] ink-link-target">
+          {post.title}
+        </span>
+        <span className="block font-headline italic text-(length:--font-size-body) text-charcoal mt-ed-sm leading-[1.4] pb-1 line-clamp-3">
+          {post.dek}
+        </span>
+      </Link>
+    );
+  }
+
   if (variant === "lead") {
     return (
       <Link href={`/blog/${post.slug}`} className="group block">

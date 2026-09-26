@@ -62,6 +62,7 @@ export default async function PostPage({
 
   return (
     <ViewTransition enter="page-enter" exit="page-exit">
+      <div>
       <article className="mx-auto max-w-2xl px-gutter pt-ed-lg pb-ed-xl" data-pagefind-body>
         {/* Scroll-driven reading-progress rule; styled in globals.css. */}
         <div className="reading-progress" aria-hidden />
@@ -158,18 +159,28 @@ export default async function PostPage({
           ))}
         </p>
 
-        {relatedPosts.length > 0 && (
-          <div className="mt-ed-xl reveal" data-pagefind-ignore>
-            <h2 className="label-caps text-ink">Related Dispatches &bull; Continued Reading</h2>
-            <div className="h-px bg-ink mt-ed-xs" />
-            <div className="mt-ed-sm">
-              {relatedPosts.map((related) => (
-                <TeaserCard key={related.slug} post={related} variant="row" />
-              ))}
-            </div>
-          </div>
-        )}
       </article>
+
+      {/* Related posts sit in a wider band than the article measure so the
+          cards can run as a grid instead of cramped rows. */}
+      {relatedPosts.length > 0 && (
+        <section
+          className="mx-auto max-w-[1240px] px-gutter pb-ed-xl reveal"
+          aria-labelledby="related-heading"
+          data-pagefind-ignore
+        >
+          <h2 id="related-heading" className="label-caps text-ink">
+            Related Dispatches &bull; Continued Reading
+          </h2>
+          <div className="h-px bg-ink mt-ed-xs" />
+          <div className="mt-ed-lg grid gap-x-ed-lg gap-y-ed-xl tablet:grid-cols-2 desktop:grid-cols-3">
+            {relatedPosts.map((related) => (
+              <TeaserCard key={related.slug} post={related} variant="card" />
+            ))}
+          </div>
+        </section>
+      )}
+      </div>
     </ViewTransition>
   );
 }
