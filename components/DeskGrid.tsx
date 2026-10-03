@@ -49,7 +49,7 @@ export function DeskGrid({ posts, frontPageSlug }: { posts: Post[]; frontPageSlu
                       <p className="label-caps text-accent-ink">On the front page</p>
                     ) : lead.banner && (
                       <ViewTransition name={`post-banner-${lead.slug}`}>
-                        <div className="press-plate relative aspect-[4/3] w-full overflow-hidden bg-paper-raised">
+                        <div className="press-plate relative aspect-4/3 w-full overflow-hidden bg-paper-raised">
                           <Image
                             src={lead.banner}
                             alt={lead.bannerAlt ?? ""}
@@ -78,7 +78,7 @@ export function DeskGrid({ posts, frontPageSlug }: { posts: Post[]; frontPageSlu
                   ))}
                 </>
               ) : (
-                <div className="mt-ed-sm bg-paper-raised tablet:aspect-[4/3] flex flex-col items-center justify-center text-center p-ed-md">
+                <div className="mt-ed-sm bg-paper-raised tablet:aspect-4/3 flex flex-col items-center justify-center text-center p-ed-md">
                   <span className="fleuron text-(length:--font-size-h2)" aria-hidden>
                     &para;
                   </span>
