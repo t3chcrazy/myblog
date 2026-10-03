@@ -183,6 +183,31 @@ p {
   animation: none;
 }
 
+/* Theme switch (components/ThemeToggle.tsx): the new edition rolls down
+   over the old one, top to bottom, like a sheet coming off the press. The
+   old snapshot stays put underneath. */
+/* Not on <html> itself: that would drop the root snapshot too. */
+.theme-switching * {
+  view-transition-name: none !important;
+}
+.theme-switching::view-transition-group(root) {
+  animation: none;
+}
+.theme-switching::view-transition-old(root) {
+  animation: none;
+}
+.theme-switching::view-transition-new(root) {
+  animation: 520ms cubic-bezier(0.4, 0, 0.2, 1) both press-roll;
+}
+@keyframes press-roll {
+  from {
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(*),
   ::view-transition-new(*),
@@ -434,6 +459,31 @@ html {
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+/* Edition selector (components/ThemeToggle.tsx): the edition in hand is
+   stamped in a hairline ink box; the other sits unboxed and muted, and
+   inks up on hover to show it can be picked. Which one is stamped follows
+   the `.dark` class, and the stamp rule outranks the hover rule so the
+   current edition never changes on hover. */
+.edition-option {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.375rem;
+  border: 1px solid transparent;
+  color: var(--color-silver);
+  transition:
+    color 150ms,
+    border-color 150ms;
+}
+.edition-toggle:hover .edition-option {
+  color: var(--color-accent-ink);
+  border-color: var(--color-hairline);
+}
+html:not(.dark) .edition-option[data-edition="day"],
+html.dark .edition-option[data-edition="night"] {
+  color: var(--color-ink);
+  border-color: var(--color-ink);
 }
 
 /* Pull quote: large italic serif between a pair of bronze double rules,
