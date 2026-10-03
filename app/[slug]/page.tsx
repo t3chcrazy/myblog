@@ -6,7 +6,7 @@ import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import rehypePrettyCode from "rehype-pretty-code";
-import { estimateReadTime, getAllPosts, getPostBySlug, getRelatedPosts } from "@/lib/posts";
+import { estimateReadTime, getAllPosts, getHeadings, getPostBySlug, getRelatedPosts } from "@/lib/posts";
 import { mdxComponents } from "@/components/mdx-components";
 import { TeaserCard } from "@/components/TeaserCard";
 import { JsonLd } from "@/components/JsonLd";
@@ -64,6 +64,7 @@ export default async function PostPage({
   if (!post) notFound();
 
   const relatedPosts = getRelatedPosts(post);
+  const headings = getHeadings(post.content);
 
   const date = new Date(post.date).toLocaleDateString("en-US", {
     month: "long",
@@ -153,6 +154,12 @@ export default async function PostPage({
           <span>By {AUTHOR_NAME}</span>
           <span aria-hidden>&middot;</span>
           <time dateTime={post.date} data-pagefind-meta="date">{date}</time>
+          {post.appliesTo && (
+            <>
+              <span aria-hidden>&middot;</span>
+              <span>Applies to {post.appliesTo}</span>
+            </>
+          )}
         </div>
 
         {post.banner && (
@@ -182,6 +189,26 @@ export default async function PostPage({
           </figure>
         )}
         {!post.banner && <div className="mb-ed-xl" />}
+        {headings.length >= 3 && (
+          <nav aria-labelledby="contents-heading" data-pagefind-ignore className="mb-ed-xl">
+            <h2 id="contents-heading" className="label-caps text-ink">
+              In This Dispatch
+            </h2>
+            <div className="h-px bg-ink mt-ed-xs" />
+            <ol className="mt-ed-sm space-y-ed-xs">
+              {headings.map((heading, i) => (
+                <li key={heading.id} className="flex gap-ed-sm font-headline text-(length:--font-size-body) text-charcoal">
+                  <span aria-hidden className="label-caps text-accent-ink tabular-nums pt-[0.3em]">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <a href={`#${heading.id}`} className="ink-link hover:text-accent-ink">
+                    {heading.text}
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        )}
         <div className="editorial-body">
           <MDXRemote
             source={post.content}

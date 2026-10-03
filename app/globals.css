@@ -473,6 +473,20 @@ html {
   all: unset;
 }
 
+/* Background briefing (<Primer>): a reference box, not part of the column,
+   so no drop cap and tighter, ragged-right text. */
+.editorial-body .primer :is(p, li) {
+  font-size: 1rem;
+  text-align: start;
+  hyphens: manual;
+}
+.editorial-body .primer p:first-of-type::first-letter {
+  all: unset;
+}
+.editorial-body .primer :is(p, ul, ol) {
+  margin-bottom: 1rem;
+}
+
 /* Code listings (rehype-pretty-code): a "listing" slug bar above each block
    carrying the file title (from ```ts title="…") and the language. */
 [data-rehype-pretty-code-figure] {
