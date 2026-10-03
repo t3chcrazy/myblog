@@ -6,7 +6,10 @@ import { CATEGORIES, type Post } from "@/lib/posts";
 // "Section Two": one column per desk, separated by vertical hairlines, each
 // with its latest story and up to two more headlines. Empty desks print a
 // "plate uncast" notice instead of disappearing, so the grid holds shape.
-export function DeskGrid({ posts }: { posts: Post[] }) {
+// A desk whose latest story is the front-page lead still lists it, but
+// without the banner: the lead already prints it above, and two banners
+// would share one view-transition name.
+export function DeskGrid({ posts, frontPageSlug }: { posts: Post[]; frontPageSlug: string }) {
   return (
     <section className="reveal">
       <div className="flex items-baseline justify-between gap-ed-md">
@@ -42,7 +45,9 @@ export function DeskGrid({ posts }: { posts: Post[] }) {
               {lead ? (
                 <>
                   <Link href={`/${lead.slug}`} className="group block mt-ed-sm">
-                    {lead.banner && (
+                    {lead.slug === frontPageSlug ? (
+                      <p className="label-caps text-accent-ink">On the front page</p>
+                    ) : lead.banner && (
                       <ViewTransition name={`post-banner-${lead.slug}`}>
                         <div className="press-plate relative aspect-[4/3] w-full overflow-hidden bg-paper-raised">
                           <Image

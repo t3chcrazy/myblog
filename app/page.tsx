@@ -89,7 +89,7 @@ export default function Home() {
         </div>
 
         <div className="mt-ed-xl">
-          <DeskGrid posts={rest} />
+          <DeskGrid posts={posts} frontPageSlug={lead.slug} />
         </div>
       </div>
     </ViewTransition>
