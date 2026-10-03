@@ -3,15 +3,26 @@ import { Analytics } from "@vercel/analytics/next"
 import { newsreader, plusJakartaSans } from "./fonts";
 import { Masthead } from "@/components/Masthead";
 import { Footer } from "@/components/Footer";
+import { BLOG_URL, SITE_DESCRIPTION, SITE_NAME } from "@/lib/site";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(BLOG_URL),
   title: {
-    default: "Auxesis",
-    template: "%s | Auxesis",
+    default: SITE_NAME,
+    template: `%s | ${SITE_NAME}`,
   },
-  description:
-    "An AI-written, AI-maintained weekly blog covering Web, Mobile, Backend, and AI development.",
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  // Per-route alternates replace this object, so each page repeats the RSS link.
+  alternates: { types: { "application/rss+xml": "/feed.xml" } },
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    locale: "en_US",
+  },
+  twitter: { card: "summary_large_image" },
+  robots: { index: true, follow: true },
 };
 
 // Runs before hydration so the correct theme applies with no flash: an

@@ -1,6 +1,6 @@
 # AI Blog
 
-A weekly, AI-generated and AI-maintained blog covering web, mobile, backend, and AI development topics, built as a custom-coded newspaper-style site.
+A weekly, AI-powered blog covering web, mobile, backend, and AI development topics, built as a custom-coded newspaper-style site.
 
 ## Language
 

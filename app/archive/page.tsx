@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { getAllPosts } from "@/lib/posts";
 import { PostListPage } from "@/components/PostListPage";
+import { pageAlternates } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "All posts",
   description: "Every post from Auxesis, newest first.",
+  alternates: pageAlternates("/archive"),
 };
 
 export default function BlogIndex() {

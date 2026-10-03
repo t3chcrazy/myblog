@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CATEGORIES, getPostsByCategory } from "@/lib/posts";
 import { PostListPage } from "@/components/PostListPage";
+import { pageAlternates } from "@/lib/seo";
 
 export function generateStaticParams() {
   return CATEGORIES.map((category) => ({ category: category.toLowerCase() }));
@@ -19,8 +20,9 @@ export async function generateMetadata({
   if (!resolved) return {};
 
   return {
-    title: resolved,
-    description: `All ${resolved} posts from Auxesis.`,
+    title: `${resolved} posts`,
+    description: `All ${resolved} posts from Auxesis, newest first: practical write-ups on ${resolved.toLowerCase()} development.`,
+    alternates: pageAlternates(`/categories/${resolved.toLowerCase()}`),
   };
 }
 

@@ -1,9 +1,22 @@
+import type { Metadata } from "next";
 import { ViewTransition } from "react";
 import { getAllPosts } from "@/lib/posts";
 import { LeadStory } from "@/components/LeadStory";
 import { DeskWire, EditionIndex } from "@/components/FrontRails";
 import { DeskGrid } from "@/components/DeskGrid";
 import { EmptyState } from "@/components/EmptyState";
+import { JsonLd } from "@/components/JsonLd";
+import { AUTHOR_ID, AUTHOR_NAME, AUTHOR_URL, BLOG_URL, SITE_DESCRIPTION, SITE_NAME } from "@/lib/site";
+
+// Absolute so the canonical is exactly ".../blog", matching the sitemap
+// (a relative "/" would resolve to ".../blog/" with a trailing slash).
+export const metadata: Metadata = {
+  alternates: {
+    canonical: BLOG_URL,
+    types: { "application/rss+xml": "/feed.xml" },
+  },
+  openGraph: { url: BLOG_URL },
+};
 
 export default function Home() {
   const posts = getAllPosts();
@@ -24,9 +37,27 @@ export default function Home() {
 
   const indexed = rest.slice(0, 5);
 
+  const blogLd = {
+    "@context": "https://schema.org",
+    "@type": "Blog",
+    name: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    url: BLOG_URL,
+    inLanguage: "en",
+    author: { "@type": "Person", "@id": AUTHOR_ID, name: AUTHOR_NAME, url: AUTHOR_URL },
+    publisher: { "@type": "Organization", name: SITE_NAME, url: BLOG_URL },
+    blogPost: posts.slice(0, 10).map((post) => ({
+      "@type": "BlogPosting",
+      headline: post.title,
+      url: `${BLOG_URL}/${post.slug}`,
+      datePublished: post.date,
+    })),
+  };
+
   return (
     <ViewTransition enter="page-enter" exit="page-exit">
       <div className="mx-auto max-w-[1240px] px-gutter pt-ed-lg pb-ed-xl">
+        <JsonLd data={blogLd} />
         <p className="text-center label-caps text-accent-ink">
           Front Page Dispatch <span aria-hidden>&bull;</span> This Week&rsquo;s Edition
         </p>

@@ -2,6 +2,7 @@ import { ViewTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { estimateReadTime, getExcerpt, type Post } from "@/lib/posts";
+import { AUTHOR_NAME } from "@/lib/site";
 
 // Split an excerpt into two roughly equal paragraphs at a sentence
 // boundary, so the two newspaper columns each open with a full sentence.
@@ -36,7 +37,7 @@ export function LeadStory({ post }: { post: Post }) {
       </p>
       <div className="flex items-center justify-between gap-ed-md mt-ed-md py-ed-xs border-y border-hairline text-(length:--font-size-micro) font-semibold uppercase tracking-[0.08em] text-silver">
         <span>
-          By Auxesis &middot; <time dateTime={post.date}>{date}</time>
+          By {AUTHOR_NAME} &middot; <time dateTime={post.date}>{date}</time>
         </span>
         <span>{minutes} min read</span>
       </div>

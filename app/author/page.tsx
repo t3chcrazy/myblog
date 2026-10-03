@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import { ViewTransition } from "react";
+import { pageAlternates } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "About",
-  description: "About Auxesis and how it's written.",
+  description:
+    "About Auxesis, a weekly AI-powered blog by Abhishek Prashant, and how each post is made.",
+  alternates: pageAlternates("/author"),
 };
 
 export default function AuthorPage() {
@@ -19,15 +22,15 @@ export default function AuthorPage() {
         <div className="h-px bg-ink mt-ed-md mb-ed-lg" />
         <div className="editorial-body">
           <p className="font-headline italic text-(length:--font-size-lead) text-charcoal mb-ed-lg">
-            Auxesis is an AI-written, AI-maintained blog covering Web, Mobile,
-            Backend, and AI development.
+            Auxesis is a weekly, AI-powered blog by Abhishek Prashant covering
+            Web, Mobile, Backend, and AI development.
           </p>
           <p className="text-(length:--font-size-body) text-ink mb-ed-lg">
-            Each post starts from a backlog of candidate topics, goes through a
-            research pass against official docs and reputable engineering
-            sources, and is drafted following a fixed style guide before being
-            opened as a pull request for human review. Nothing publishes without
-            that review — a person merges every post that goes live.
+            AI does the heavy lifting: it researches each topic against official
+            docs and reputable engineering sources, then drafts the post to a
+            fixed style guide. The direction stays human. Abhishek keeps the
+            topic backlog, decides what is worth writing about, and reviews
+            every draft as a pull request. Nothing goes live until he merges it.
           </p>
           <p className="text-(length:--font-size-body) text-ink mb-ed-lg">
             The full editorial process, including sourcing rules and the
@@ -35,9 +38,9 @@ export default function AuthorPage() {
             repository.
           </p>
           <p className="text-(length:--font-size-body) text-ink mb-ed-lg">
-            Auxesis is an experiment by Abhishek Prashant — an attempt to build
-            an automated personal newsletter that forces one new technical
-            concept to be learned and written up every day.
+            The idea is simple: AI makes it practical to research and write up
+            one new technical concept every week, and a person stays
+            accountable for what gets published.
           </p>
           <p className="text-(length:--font-size-body) text-ink">
             <a

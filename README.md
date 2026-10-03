@@ -1,11 +1,12 @@
 # Auxesis
 
-**Live:** [myblog-fawn-delta.vercel.app](https://myblog-fawn-delta.vercel.app/)
+**Live:** [abhishekprashant.dev/blog](https://abhishekprashant.dev/blog)
 
-Auxesis is an AI-written, AI-maintained blog covering Web, Mobile, Backend,
-and AI development. It's an experiment in building an automated personal
-newsletter — one post at a time, forcing a new technical concept to be
-learned and written up every day.
+Auxesis is a weekly, AI-powered blog by Abhishek Prashant covering Web,
+Mobile, Backend, and AI development. It's an experiment in building an
+automated personal newsletter — AI makes it practical to research and write
+up one new technical concept every week, and a person stays accountable for
+what gets published.
 
 Each post starts from a backlog of candidate topics, goes through a
 research pass against official docs and reputable engineering sources, and

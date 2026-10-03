@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getAllTags, getPostsByTag } from "@/lib/posts";
 import { PostListPage } from "@/components/PostListPage";
+import { pageAlternates } from "@/lib/seo";
 
 export function generateStaticParams() {
   return getAllTags().map((tag) => ({ tag }));
@@ -16,6 +17,9 @@ export async function generateMetadata({
   return {
     title: `#${tag}`,
     description: `All Auxesis posts tagged "${tag}".`,
+    alternates: pageAlternates(`/tags/${tag.toLowerCase()}`),
+    // Tag pages are thin duplicates of post lists: keep links followed, skip indexing.
+    robots: { index: false, follow: true },
   };
 }
 

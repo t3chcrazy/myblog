@@ -9,6 +9,9 @@ import rehypePrettyCode from "rehype-pretty-code";
 import { estimateReadTime, getAllPosts, getPostBySlug, getRelatedPosts } from "@/lib/posts";
 import { mdxComponents } from "@/components/mdx-components";
 import { TeaserCard } from "@/components/TeaserCard";
+import { JsonLd } from "@/components/JsonLd";
+import { pageAlternates } from "@/lib/seo";
+import { AUTHOR_ID, AUTHOR_NAME, AUTHOR_URL, BLOG_URL, SITE_NAME } from "@/lib/site";
 
 export function generateStaticParams() {
   return getAllPosts().map((post) => ({ slug: post.slug }));
@@ -21,20 +24,34 @@ export async function generateMetadata({
   const post = getPostBySlug(slug);
   if (!post) return {};
 
+  const images = post.banner
+    ? [{ url: post.banner, alt: post.bannerAlt ?? post.title }]
+    : undefined;
+
   return {
     title: post.title,
     description: post.dek,
+    keywords: post.tags,
+    authors: [{ name: AUTHOR_NAME, url: AUTHOR_URL }],
+    alternates: pageAlternates(`/${post.slug}`),
     openGraph: {
       title: post.title,
       description: post.dek,
       type: "article",
+      url: `/${post.slug}`,
+      siteName: SITE_NAME,
       publishedTime: post.date,
+      modifiedTime: post.date,
+      section: post.Category,
+      authors: [AUTHOR_URL],
       tags: post.tags,
+      images,
     },
     twitter: {
       card: "summary_large_image",
       title: post.title,
       description: post.dek,
+      images,
     },
   };
 }
@@ -60,9 +77,47 @@ export default async function PostPage({
       .reverse()
       .findIndex((p) => p.slug === post.slug) + 1;
 
+  const postUrl = `${BLOG_URL}/${post.slug}`;
+  const author = { "@type": "Person", "@id": AUTHOR_ID, name: AUTHOR_NAME, url: AUTHOR_URL };
+  const publisher = { "@type": "Organization", name: SITE_NAME, url: BLOG_URL };
+  const jsonLd = [
+    {
+      "@context": "https://schema.org",
+      "@type": "BlogPosting",
+      headline: post.title,
+      description: post.dek,
+      image: post.banner ? [`${BLOG_URL}${post.banner}`] : undefined,
+      datePublished: post.date,
+      dateModified: post.date,
+      author,
+      publisher,
+      mainEntityOfPage: { "@type": "WebPage", "@id": postUrl },
+      url: postUrl,
+      articleSection: post.Category,
+      keywords: post.tags.join(", "),
+      inLanguage: "en",
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: SITE_NAME, item: BLOG_URL },
+        {
+          "@type": "ListItem",
+          position: 2,
+          name: post.Category,
+          item: `${BLOG_URL}/categories/${post.Category.toLowerCase()}`,
+        },
+        { "@type": "ListItem", position: 3, name: post.title, item: postUrl },
+      ],
+    },
+  ];
+
   return (
     <ViewTransition enter="page-enter" exit="page-exit">
       <div>
+      <JsonLd data={jsonLd[0]} />
+      <JsonLd data={jsonLd[1]} />
       <article className="mx-auto max-w-2xl px-gutter pt-ed-lg pb-ed-xl" data-pagefind-body>
         {/* Scroll-driven reading-progress rule; styled in globals.css. */}
         <div className="reading-progress" aria-hidden />
@@ -95,7 +150,7 @@ export default async function PostPage({
           {post.dek}
         </p>
         <div className="flex flex-wrap items-center gap-x-ed-sm gap-y-1 mt-ed-md py-ed-xs border-y border-hairline text-(length:--font-size-micro) font-semibold uppercase tracking-[0.08em] text-silver">
-          <span>By Auxesis</span>
+          <span>By {AUTHOR_NAME}</span>
           <span aria-hidden>&middot;</span>
           <time dateTime={post.date} data-pagefind-meta="date">{date}</time>
         </div>
