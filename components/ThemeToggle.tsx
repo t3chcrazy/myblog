@@ -2,10 +2,9 @@
 
 import { flushSync } from "react-dom";
 
-// The edition switch, set like the edition selector on a newspaper's folio
-// line: both editions named, the one in hand stamped in a box. Which one is
-// current comes from the `.dark` class (via `dark:` variants), not React
-// state, so the server-rendered markup is already right for whichever theme
+// The edition switch: a type block sliding between "Day" and "Night" on a
+// ruled track (styles under .edition-toggle in globals.css). Which edition
+// is current comes from the `.dark` class, not React state, so the server-rendered markup is already right for whichever theme
 // the init script in app/layout.tsx picked — no flash of the wrong label.
 export function ThemeToggle() {
   function toggle() {
@@ -34,25 +33,23 @@ export function ThemeToggle() {
   }
 
   return (
-    <button
-      type="button"
-      onClick={toggle}
-      className="edition-toggle flex items-center gap-ed-xs text-(length:--font-size-micro) font-semibold uppercase tracking-[0.08em] text-charcoal"
-    >
+    <button type="button" onClick={toggle} className="edition-toggle">
       <span className="sr-only">
         <span className="dark:hidden">Switch to the Night Edition (dark theme)</span>
         <span className="hidden dark:inline">Switch to the Day Edition (light theme)</span>
       </span>
-      <span aria-hidden className="edition-option" data-edition="day">
-        <span className="fleuron mr-1 text-[1.15em] leading-none">&#9788;</span>
+      <span aria-hidden className="edition-label" data-edition="day">
         Day
       </span>
-      <span aria-hidden className="text-silver">/</span>
-      <span aria-hidden className="edition-option" data-edition="night">
-        <span className="fleuron mr-1 text-[1.15em] leading-none">&#9790;</span>
+      <span aria-hidden className="edition-track">
+        <span className="edition-knob">
+          <span data-glyph="day">&#9788;</span>
+          <span data-glyph="night">&#9790;</span>
+        </span>
+      </span>
+      <span aria-hidden className="edition-label" data-edition="night">
         Night
       </span>
-      <span aria-hidden className="hidden tablet:inline">Edition</span>
     </button>
   );
 }
