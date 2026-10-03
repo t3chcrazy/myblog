@@ -7,7 +7,7 @@ import { CATEGORIES } from "@/lib/categories";
 const ITEMS = [
   { label: "Front Page", href: "/" },
   ...CATEGORIES.map((c) => ({ label: c, href: `/categories/${c.toLowerCase()}` })),
-  { label: "Archive", href: "/blog" },
+  { label: "Archive", href: "/archive" },
   { label: "About", href: "/author" },
 ];
 
@@ -23,7 +23,7 @@ export function MastheadNav() {
     >
       {ITEMS.map((item, i) => {
         const active =
-          item.href === "/" || item.href === "/blog"
+          item.href === "/" || item.href === "/archive"
             ? pathname === item.href
             : pathname.startsWith(item.href);
         return (

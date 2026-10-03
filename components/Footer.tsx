@@ -34,10 +34,10 @@ export function Footer() {
 
         <div>
           <h2 className={COLUMN_HEADING}>Syndication</h2>
-          <a href="/feed.xml" className={COLUMN_LINK}>
+          <a href="/blog/feed.xml" className={COLUMN_LINK}>
             RSS feed (full text)
           </a>
-          <Link href="/blog" className={COLUMN_LINK}>
+          <Link href="/archive" className={COLUMN_LINK}>
             The archive
           </Link>
           <Link href="/author" className={COLUMN_LINK}>

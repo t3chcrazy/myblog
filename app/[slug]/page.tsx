@@ -16,7 +16,7 @@ export function generateStaticParams() {
 
 export async function generateMetadata({
   params,
-}: PageProps<"/blog/[slug]">): Promise<Metadata> {
+}: PageProps<"/[slug]">): Promise<Metadata> {
   const { slug } = await params;
   const post = getPostBySlug(slug);
   if (!post) return {};
@@ -41,7 +41,7 @@ export async function generateMetadata({
 
 export default async function PostPage({
   params,
-}: PageProps<"/blog/[slug]">) {
+}: PageProps<"/[slug]">) {
   const { slug } = await params;
   const post = getPostBySlug(slug);
   if (!post) notFound();

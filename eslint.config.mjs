@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Generated vendor code, rebuilt by `pagefind` on every build.
     "public/pagefind/**",
+    // Cloudflare Worker, deployed separately with wrangler.
+    "worker/**",
   ]),
 ]);
 
