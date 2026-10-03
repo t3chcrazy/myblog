@@ -1,0 +1,13 @@
+{
+  "name": "blog-router",
+  "main": "index.js",
+  "compatibility_date": "2026-08-25",
+  "workers_dev": false,
+  "vars": {
+    "ORIGIN": "https://myblog-fawn-delta.vercel.app"
+  },
+  "routes": [
+    { "pattern": "abhishekprashant.dev/blog", "zone_name": "abhishekprashant.dev" },
+    { "pattern": "abhishekprashant.dev/blog/*", "zone_name": "abhishekprashant.dev" }
+  ]
+}

@@ -12,7 +12,7 @@ export function DeskGrid({ posts }: { posts: Post[] }) {
       <div className="flex items-baseline justify-between gap-ed-md">
         <h2 className="label-caps text-ink">Section Two &bull; The Desks</h2>
         <Link
-          href="/blog"
+          href="/archive"
           className="group text-(length:--font-size-micro) font-semibold uppercase tracking-[0.08em] text-accent-ink hover:text-ink transition-colors"
         >
           Full archive <span className="nudge" aria-hidden>&rarr;</span>
@@ -41,7 +41,7 @@ export function DeskGrid({ posts }: { posts: Post[] }) {
 
               {lead ? (
                 <>
-                  <Link href={`/blog/${lead.slug}`} className="group block mt-ed-sm">
+                  <Link href={`/${lead.slug}`} className="group block mt-ed-sm">
                     {lead.banner && (
                       <ViewTransition name={`post-banner-${lead.slug}`}>
                         <div className="press-plate relative aspect-[4/3] w-full overflow-hidden bg-paper-raised">
@@ -65,7 +65,7 @@ export function DeskGrid({ posts }: { posts: Post[] }) {
                   {more.slice(0, 2).map((post) => (
                     <Link
                       key={post.slug}
-                      href={`/blog/${post.slug}`}
+                      href={`/${post.slug}`}
                       className="group block mt-ed-sm pt-ed-sm border-t border-hairline font-headline text-(length:--font-size-body) leading-snug text-ink"
                     >
                       <span className="ink-link-target">{post.title}</span>

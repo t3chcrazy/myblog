@@ -25,17 +25,20 @@ type PagefindModule = {
   filters: () => Promise<PagefindFilterCounts>;
 };
 
+const BASE_PATH = "/blog";
+
 // Pagefind indexes the raw prerendered .html files under .next/server/app,
-// so result URLs come back as e.g. "/blog/my-post.html" — but Next.js
-// serves that route without the extension. Strip it before using as a href.
+// so result URLs come back as e.g. "/my-post.html" — but Next.js serves that
+// route without the extension, under basePath. Strip it and prefix basePath
+// before using as a plain href (raw anchors and window.location skip basePath).
 function toRoutePath(pagefindUrl: string): string {
-  if (pagefindUrl.endsWith("/index.html")) {
-    return pagefindUrl.slice(0, -"index.html".length) || "/";
+  let path = pagefindUrl;
+  if (path.endsWith("/index.html")) {
+    path = path.slice(0, -"index.html".length);
+  } else if (path.endsWith(".html")) {
+    path = path.slice(0, -".html".length);
   }
-  if (pagefindUrl.endsWith(".html")) {
-    return pagefindUrl.slice(0, -".html".length);
-  }
-  return pagefindUrl;
+  return path === "/" ? BASE_PATH : `${BASE_PATH}${path}`;
 }
 
 // Line-drawn magnifier in ink, in place of the colour emoji.
@@ -61,7 +64,7 @@ let pagefindPromise: Promise<PagefindModule> | null = null;
 
 function loadPagefind() {
   if (!pagefindPromise) {
-    const pagefindUrl = "/pagefind/pagefind.js";
+    const pagefindUrl = `${BASE_PATH}/pagefind/pagefind.js`;
     pagefindPromise = import(
       /* webpackIgnore: true */ pagefindUrl
     ) as Promise<PagefindModule>;

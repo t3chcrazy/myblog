@@ -27,7 +27,7 @@ export function TeaserCard({
   // on top, text below, so neither side has to match the other's height.
   if (variant === "card") {
     return (
-      <Link href={`/blog/${post.slug}`} className="group flex flex-col">
+      <Link href={`/${post.slug}`} className="group flex flex-col">
         {post.banner ? (
           <ViewTransition name={`post-banner-${post.slug}`}>
             <span className="press-plate relative block aspect-video w-full overflow-hidden bg-paper-raised mb-ed-md">
@@ -67,7 +67,7 @@ export function TeaserCard({
 
   if (variant === "lead") {
     return (
-      <Link href={`/blog/${post.slug}`} className="group block">
+      <Link href={`/${post.slug}`} className="group block">
         {post.banner && (
           <ViewTransition name={`post-banner-${post.slug}`}>
             <div className="press-plate relative aspect-video w-full overflow-hidden mb-ed-lg bg-paper-raised">
@@ -103,7 +103,7 @@ export function TeaserCard({
 
   return (
     <Link
-      href={`/blog/${post.slug}`}
+      href={`/${post.slug}`}
       className="group flex flex-col lg:flex-row lg:items-baseline gap-ed-sm lg:gap-ed-md py-ed-md border-b border-hairline first:pt-0"
     >
       <span className="text-(length:--font-size-micro) uppercase tracking-[0.15em] text-accent-ink font-semibold w-16 shrink-0 self-start lg:mt-1">

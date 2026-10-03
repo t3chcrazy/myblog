@@ -59,7 +59,7 @@ export function DeskWire({
                 </span>
               </div>
               {latest ? (
-                <Link href={`/blog/${latest.slug}`} className="group block mt-1">
+                <Link href={`/${latest.slug}`} className="group block mt-1">
                   <span className="font-headline text-(length:--font-size-body) leading-snug text-ink ink-link-target">
                     {latest.title}
                   </span>
@@ -94,7 +94,7 @@ export function EditionIndex({ posts }: { posts: Post[] }) {
           <ol>
             {posts.map((post, i) => (
               <li key={post.slug} className="py-ed-sm border-b border-hairline last:border-b-0">
-                <Link href={`/blog/${post.slug}`} className="group flex gap-ed-sm">
+                <Link href={`/${post.slug}`} className="group flex gap-ed-sm">
                   <span className="font-headline text-(length:--font-size-h3) font-semibold leading-none text-accent-ink tabular-nums">
                     {String(i + 1).padStart(2, "0")}
                   </span>
@@ -122,7 +122,7 @@ export function EditionIndex({ posts }: { posts: Post[] }) {
           One long-form dispatch a week. No trackers, full text in the feed.
         </p>
         <a
-          href="/feed.xml"
+          href="/blog/feed.xml"
           className="block mt-ed-md border border-paper px-ed-md py-ed-sm text-center label-caps hover:bg-paper hover:text-ink transition-colors"
         >
           Subscribe via RSS

@@ -27,7 +27,7 @@ export function LeadStory({ post }: { post: Post }) {
         Feature <span aria-hidden>&bull;</span> {post.Category} Desk
       </p>
       <h2 className="font-headline text-(length:--font-size-h1) desktop:text-[3.25rem] font-normal text-ink mt-ed-xs leading-[1.05] tracking-[-0.02em]">
-        <Link href={`/blog/${post.slug}`} className="ink-link">
+        <Link href={`/${post.slug}`} className="ink-link">
           {post.title}
         </Link>
       </h2>
@@ -77,7 +77,7 @@ export function LeadStory({ post }: { post: Post }) {
       <div className="flex items-center gap-ed-md mt-ed-md">
         <div className="h-px bg-hairline flex-1" />
         <Link
-          href={`/blog/${post.slug}`}
+          href={`/${post.slug}`}
           className="group label-caps text-accent-ink hover:text-ink transition-colors"
         >
           Continued inside <span className="nudge" aria-hidden>&rarr;</span>

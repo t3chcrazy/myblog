@@ -141,7 +141,7 @@ p {
    deliberately calm (fade + a slight rise, no slides/parallax) to match
    the "peaceful" brief. See each page.tsx for the enter/exit wrapper and
    components/Masthead.tsx + components/TeaserCard.tsx/LeadStory.tsx/
-   app/blog/[slug]/page.tsx for the banner-image shared-element morph. */
+   app/[slug]/page.tsx for the banner-image shared-element morph. */
 ::view-transition {
   /* Without this, the transition overlay eats clicks mid-animation. */
   pointer-events: none;
