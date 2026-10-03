@@ -114,7 +114,7 @@ export function EditionIndex({ posts }: { posts: Post[] }) {
       )}
 
       <div className="bg-ink text-paper p-ed-md">
-        <p className="label-caps text-accent dark:text-[#96632a]">Circulation</p>
+        <p className="label-caps text-accent dark:text-accent-ink">Circulation</p>
         <p className="font-headline text-(length:--font-size-h3) leading-tight mt-ed-xs">
           Delivered every Saturday
         </p>
