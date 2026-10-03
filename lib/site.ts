@@ -12,6 +12,8 @@ export const AUTHOR_ID = `${AUTHOR_URL}/#person`;
 // canonical URLs never point at localhost or a vercel.app preview.
 export const SITE_URL = process.env.SITE_URL ?? "https://abhishekprashant.dev";
 
-// The app is served under /blog (next.config basePath), so every public URL
-// is composed from this.
-export const BLOG_URL = `${SITE_URL}/blog`;
+// Must match basePath in next.config.ts.
+export const BASE_PATH = "/blog";
+
+// The app is served under BASE_PATH, so every public URL is composed from this.
+export const BLOG_URL = `${SITE_URL}${BASE_PATH}`;

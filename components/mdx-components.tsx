@@ -1,6 +1,15 @@
 import type { ReactNode } from "react";
 import { isValidElement } from "react";
 import type { MDXComponents } from "mdx/types";
+import { BASE_PATH } from "@/lib/site";
+
+// Plain <img> (unlike next/image and <Link>) doesn't get basePath added, so a
+// root-relative src like "/diagrams/x.svg" would hit the portfolio instead.
+function withBasePath(src: unknown) {
+  return typeof src === "string" && src.startsWith("/") && !src.startsWith("//")
+    ? `${BASE_PATH}${src}`
+    : src;
+}
 
 // Flatten a heading's children (which may include inline <code>, links,
 // etc.) to plain text, so it can be slugified into an anchor id.
@@ -80,7 +89,7 @@ export const mdxComponents: MDXComponents = {
     <span className="block my-ed-xl">
       <span className="block border border-ink p-[3px] bg-paper-raised">
         {/* eslint-disable-next-line @next/next/no-img-element -- MDX images have no intrinsic size for next/image */}
-        <img src={src} alt={alt ?? ""} className="block w-full h-auto" loading="lazy" {...props} />
+        <img src={withBasePath(src) as string | undefined} alt={alt ?? ""} className="block w-full h-auto" loading="lazy" {...props} />
       </span>
       {alt && (
         <span aria-hidden className="block mt-ed-xs font-headline italic text-(length:--font-size-small) text-silver">
