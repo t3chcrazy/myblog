@@ -1,0 +1,94 @@
+---
+title: "Filtered vector search: where pgvector breaks and what to do"
+slug: pgvector-filtered-search-vs-vector-database
+date: "2026-10-03"
+Category: Backend
+dek: "On 100,000 vectors, a 1% filter returned 0.33 of 10 requested rows from pgvector's defaults. The Postgres planner, not the index, decides when that happens."
+tags: ["postgres", "pgvector", "vector-search", "performance"]
+banner: "/banners/pgvector-filtered-search-vs-vector-database.png"
+bannerAlt: "Engraving of a round fine-mesh sieve with a handle, stretched across a web of knotted threads and connected nodes."
+---
+
+The usual question, "pgvector or a dedicated vector database?", is mostly about scale. For anything with a `WHERE` clause it is about something narrower: who plans the query. On a 100,000-row table with an HNSW index, pgvector 0.8.2 returned an average of 0.33 rows for a `LIMIT 10` query filtered to 1% of the data, with no error and the default settings, even with a B-tree on the filter column. A dedicated engine such as Qdrant makes the equivalent decision inside the engine, using filter cardinality. In Postgres you make it yourself, by choosing indexes and checking plans. Once you do, Postgres handles more filtered workloads than its defaults suggest, and the cases where it does not are specific.
+
+## The default silently returns too few rows
+
+An HNSW index returns the `ef_search` nearest candidates (40 by default), and Postgres applies the `WHERE` clause afterwards. The [pgvector README](https://github.com/pgvector/pgvector/blob/v0.8.2/README.md#filtering) states the consequence: "If a condition matches 10% of rows, with HNSW and the default `hnsw.ef_search` of 40, only 4 rows will match on average."
+
+I reproduced this on pgvector 0.8.2 and PostgreSQL 16.15 (4 vCPUs). The table holds 100,000 64-dimensional vectors drawn from 300 Gaussian clusters, each row assigned one of 1,000 tenants at random, with a default cosine HNSW index. Each cell is the average over 100 queries of `ORDER BY embedding <=> $1 LIMIT 10`, with recall measured against an exact scan.
+
+```sql
+CREATE EXTENSION vector;
+CREATE TABLE items (id serial PRIMARY KEY, tenant int, embedding vector(64));
+CREATE INDEX ON items USING hnsw (embedding vector_cosine_ops);
+
+SELECT id FROM items
+WHERE tenant < 10            -- 1% of rows
+ORDER BY embedding <=> $1
+LIMIT 10;
+```
+
+| Filter matches | Rows returned (default) | Recall@10 |
+|---|---|---|
+| 10% (`tenant < 100`) | 4.07 | 0.40 |
+| 1% (`tenant < 10`) | 0.33 | 0.03 |
+| 0.1% (`tenant = 5`) | 0.04 | 0.00 |
+
+The 10% row matches the README's arithmetic. The lower rows are the same arithmetic taken further. At 1% and below, the application asked for 10 results and received fewer than one on average. Raising `ef_search` to 200 helps at 10% (10 rows, recall 0.99) and does little at 1% (2.05 rows, recall 0.20).
+
+## Iterative scans fix the count, and cost latency
+
+pgvector 0.8.0, released 2024-10-30, ([changelog](https://github.com/pgvector/pgvector/blob/master/CHANGELOG.md)) added iterative index scans. When the filter discards too many candidates, the scan [resumes](https://github.com/pgvector/pgvector/blob/v0.8.2/src/hnswscan.c) from the candidates it set aside, in batches of `ef_search`, until it has enough rows or reaches `hnsw.max_scan_tuples` (20,000 by default, [per the README](https://github.com/pgvector/pgvector/blob/v0.8.2/README.md#iterative-scan-options)).
+
+```sql
+SET hnsw.iterative_scan = relaxed_order;  -- or strict_order
+```
+
+Same table, same queries, with the HNSW plan forced (`enable_seqscan = off`) and no index on `tenant`:
+
+| Filter matches | Mode | Rows | Recall@10 | Median latency |
+|---|---|---|---|---|
+| 10% | off | 4.07 | 0.40 | 0.47 ms |
+| 10% | relaxed_order | 10.00 | 0.99 | 0.50 ms |
+| 1% | off | 0.33 | 0.03 | 0.46 ms |
+| 1% | relaxed_order | 10.00 | 0.92 | 3.86 ms |
+| 1% | strict_order | 10.00 | 0.84 | 3.78 ms |
+| 0.1% | off | 0.04 | 0.00 | 0.41 ms |
+| 0.1% | relaxed_order | 9.98 | 0.91 | 37.78 ms |
+| 0.1% | strict_order | 9.94 | 0.78 | 39.19 ms |
+
+Iterative scans make the row count correct, and the price rises as the filter tightens: about 8x the latency at 1%, about 90x at 0.1%. Two details matter. First, recall is high but below 1.0, because the scan stops once it has 10 matches, and those are not guaranteed to be the 10 nearest. Second, strict ordering scored lower than relaxed here (0.84 vs 0.92 at 1%). The README says strict "ensures results are in the exact order by distance", and the source shows how: the scan skips any tuple whose distance is smaller than the previous one returned (`if (sc->distance < so->previousDistance) continue;`). A skipped tuple is never returned, which is consistent with exact order costing recall. This is one dataset and 100 queries, so treat the gap as directional. The mechanism is in the source.
+
+## The planner chooses, and not always well
+
+With a B-tree on `tenant`, the same queries behave differently depending on selectivity, because Postgres picks the plan from its cost estimates:
+
+| Filter matches | Plan chosen | Rows (iterative off) | Recall@10 | Median latency |
+|---|---|---|---|---|
+| 10% | HNSW index scan | 4.07 | 0.40 | 0.46 ms |
+| 1% | HNSW index scan | 0.33 | 0.03 | 0.49 ms |
+| 0.1% | B-tree bitmap scan, then sort | 10.00 | 1.00 | 0.12 ms |
+
+At 0.1% the planner found the exact path: fetch the roughly 100 matching rows through the B-tree, sort by distance, return ten. It is both exact and the fastest option measured, at 0.12 ms against 37.78 ms for the iterative HNSW scan. At 1% it still chose HNSW, and the default silently under-delivered. This is not a quirk of my setup. A February 2026 [preprint benchmarking filtered search](https://arxiv.org/abs/2602.11443) on pgvector 0.8.1 and PostgreSQL 16 reports that "pgvector's cost-based query optimizer frequently selects suboptimal execution plans, favoring approximate index scans even when exact sequential scans would yield perfect recall at comparable latency", and advises readers to verify plans with `EXPLAIN ANALYZE` rather than trust the optimizer. The paper does not mention iterative scans, so the measurements above cover ground it does not.
+
+A second preprint, an [analysis of filtered search in a PostgreSQL-compatible system](https://arxiv.org/abs/2603.23710) (March 2026), reaches a compatible conclusion in its abstract: the best strategy depends on selectivity, filter correlation, and system overheads such as page accesses, and graph-based approaches such as NaviX and ACORN "can incur prohibitive numbers of filter checks".
+
+## What dedicated engines do differently
+
+The difference is where the decision lives. Qdrant's [indexing documentation](https://qdrant.tech/documentation/manage-data/indexing/) says its payload index is used "to accurately estimate the filter cardinality, which helps the query planning choose a search strategy", and a `full_scan_threshold` setting switches to a full scan when the estimated number of matching points is small enough. That is the 0.1% decision above, made automatically. For the middle range, the same page concedes that neither approach alone works: "the HNSW graph starts to fall apart when using filters that are too strict". Qdrant's answer is to add extra graph edges per indexed payload value, an idea laid out in its [2019 design article](https://qdrant.tech/articles/filterable-hnsw/), which keeps a filtered subgraph connected.
+
+This is also not free of limits. The same documentation notes the extra edges are built per payload index, "but not for every possible combination of payload indices", so two strict filters together can still disconnect the graph, which is why it added an ACORN search mode in v1.16.0 that "improves search accuracy at the cost of performance". Pinecone's 2021 [launch post](https://www.pinecone.io/blog/pinecone-v2/) presents its single-stage filtering as the fix for pre-filtering's brute force and post-filtering's lack of any guarantee. As a vendor claim, it is a description of the design, not a measurement.
+
+## Trade-offs and what this does not show
+
+My dataset has filters that are statistically independent of the vectors. Real filters often are not: a tenant's documents cluster in embedding space. The preprint above introduces a correlation metric and notes that queries whose valid neighbours are pushed away from the query vector suffer lower recall, so expect worse than these numbers when filter and content correlate. The benchmark is 100,000 vectors on one 4-vCPU machine, with a warm cache and client-side timing, so absolute latencies will not transfer; the ratios and the plan choices are the portable part. And pgvector's own limits apply regardless of filtering: HNSW and IVFFlat index at most 2,000 dimensions for the `vector` type (4,000 for `halfvec`), per the README.
+
+## A decision rule
+
+Start from the filter's selectivity and verify with `EXPLAIN ANALYZE` plus a recall check against an exact scan, as the preprint recommends.
+
+- **Filters matching a few hundred rows, such as a small tenant or a narrow category (0.1% of the table here):** put a B-tree (or a multicolumn index) on the filter column and let Postgres do exact search. The README says exact indexes "work well for conditions that match a low percentage of rows". For a handful of large, fixed values, use partial indexes; for many, partitioning, as the README suggests.
+- **Filters matching around 1% to 10%, where the planner picks HNSW:** enable `hnsw.iterative_scan = relaxed_order` and measure. Check that the planner is not choosing HNSW when an exact plan would be faster.
+- **Many high-cardinality filters combined, at mid selectivity, under a tight latency budget:** this is where Postgres leaves you tuning plans by hand. A dedicated engine that estimates cardinality and builds filter-aware graphs is the justified reason to switch, with the vendor-documented limits above in mind.
+
+Before shipping a filtered `LIMIT k` vector query on default settings, run it for your largest and smallest filter values and count how many rows come back. If any return fewer than k, you have this bug.

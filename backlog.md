@@ -16,7 +16,7 @@ Weekly pipeline's source of topics. See [decision](.scratch/wayfinder/tickets/00
 - [ ] Structured outputs and tool calling in modern LLM APIs
 - [x] Edge functions vs. serverless: picking a deploy target for a Next.js app
 - [ ] Mobile app state management in 2026: where Redux lost ground
-- [ ] Vector databases vs. plain Postgres + pgvector: when to reach for which
+- [x] Vector databases vs. plain Postgres + pgvector: when to reach for which
 - [ ] What "agentic" actually means in current AI tooling
 - [ ] Database connection pooling for serverless backends
 - [ ] Designing REST vs. GraphQL vs. tRPC APIs for a small team
