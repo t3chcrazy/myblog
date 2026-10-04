@@ -38,5 +38,5 @@ bun run lint
 
 ## About
 
-See [`/author`](https://myblog-fawn-delta.vercel.app/author) on the live
+See [`/author`](https://myblog-fawn-delta.vercel.app/blog/author) on the live
 site for the full editorial process and links to the author.

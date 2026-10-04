@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
 import { isValidElement } from "react";
+import Link from "next/link";
 import type { MDXComponents } from "mdx/types";
 import { BASE_PATH } from "@/lib/site";
+import { slugify } from "@/lib/slug";
 
 // Plain <img> (unlike next/image and <Link>) doesn't get basePath added, so a
 // root-relative src like "/diagrams/x.svg" would hit the portfolio instead.
@@ -20,14 +22,6 @@ function textOf(node: ReactNode): string {
   return "";
 }
 
-function slugify(text: string) {
-  return text
-    .toLowerCase()
-    .replace(/[^\w\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-");
-}
-
 // Section mark that appears beside a heading on hover, linking to it —
 // so readers can share a deep link to one section of a post.
 function Anchor({ id }: { id: string }) {
@@ -39,6 +33,27 @@ function Anchor({ id }: { id: string }) {
     >
       &sect;
     </a>
+  );
+}
+
+// Background briefing for readers new to the topic, placed after a post's
+// opening paragraph. Collapsed by default so readers who already know the
+// ground can carry straight on into the body.
+function Primer({ children }: { children: ReactNode }) {
+  return (
+    <details className="primer group my-ed-xl border border-ink bg-paper-raised">
+      <summary className="flex cursor-pointer list-none items-baseline justify-between gap-ed-md px-ed-md py-ed-sm [&::-webkit-details-marker]:hidden">
+        <span>
+          <span className="label-caps block text-accent-ink">Background briefing</span>
+          <span className="block font-headline italic text-(length:--font-size-small) text-charcoal">
+            New to this topic? The terms and reading this post assumes.
+          </span>
+        </span>
+        <span aria-hidden className="fleuron text-(length:--font-size-h3) leading-none group-open:hidden">+</span>
+        <span aria-hidden className="fleuron text-(length:--font-size-h3) leading-none hidden group-open:inline">&minus;</span>
+      </summary>
+      <div className="border-t border-hairline px-ed-md pt-ed-md">{children}</div>
+    </details>
   );
 }
 
@@ -75,12 +90,18 @@ export const mdxComponents: MDXComponents = {
       {...props}
     />
   ),
-  a: (props) => (
-    <a
-      className="text-accent-ink underline underline-offset-2 decoration-accent-ink/40 hover:decoration-accent-ink transition-[text-decoration-color]"
-      {...props}
-    />
-  ),
+  // Root-relative hrefs are links to other posts: route them through
+  // <Link> so they get basePath (a plain <a> would hit the portfolio).
+  a: ({ href, ...props }) => {
+    const className =
+      "text-accent-ink underline underline-offset-2 decoration-accent-ink/40 hover:decoration-accent-ink transition-[text-decoration-color]";
+    return href?.startsWith("/") && !href.startsWith("//") ? (
+      <Link href={href} className={className} {...props} />
+    ) : (
+      <a href={href} className={className} {...props} />
+    );
+  },
+  Primer,
   blockquote: (props) => <blockquote className="pull-quote" {...props} />,
   // Body images (diagrams) print as plates: hairline frame, with the alt
   // text doubling as an italic caption. Spans, not <figure>, because

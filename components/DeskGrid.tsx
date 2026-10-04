@@ -6,7 +6,10 @@ import { CATEGORIES, type Post } from "@/lib/posts";
 // "Section Two": one column per desk, separated by vertical hairlines, each
 // with its latest story and up to two more headlines. Empty desks print a
 // "plate uncast" notice instead of disappearing, so the grid holds shape.
-export function DeskGrid({ posts }: { posts: Post[] }) {
+// A desk whose latest story is the front-page lead still lists it, but
+// without the banner: the lead already prints it above, and two banners
+// would share one view-transition name.
+export function DeskGrid({ posts, frontPageSlug }: { posts: Post[]; frontPageSlug: string }) {
   return (
     <section className="reveal">
       <div className="flex items-baseline justify-between gap-ed-md">
@@ -42,9 +45,11 @@ export function DeskGrid({ posts }: { posts: Post[] }) {
               {lead ? (
                 <>
                   <Link href={`/${lead.slug}`} className="group block mt-ed-sm">
-                    {lead.banner && (
+                    {lead.slug === frontPageSlug ? (
+                      <p className="label-caps text-accent-ink">On the front page</p>
+                    ) : lead.banner && (
                       <ViewTransition name={`post-banner-${lead.slug}`}>
-                        <div className="press-plate relative aspect-[4/3] w-full overflow-hidden bg-paper-raised">
+                        <div className="press-plate relative aspect-4/3 w-full overflow-hidden bg-paper-raised">
                           <Image
                             src={lead.banner}
                             alt={lead.bannerAlt ?? ""}
@@ -73,7 +78,7 @@ export function DeskGrid({ posts }: { posts: Post[] }) {
                   ))}
                 </>
               ) : (
-                <div className="mt-ed-sm bg-paper-raised tablet:aspect-[4/3] flex flex-col items-center justify-center text-center p-ed-md">
+                <div className="mt-ed-sm bg-paper-raised tablet:aspect-4/3 flex flex-col items-center justify-center text-center p-ed-md">
                   <span className="fleuron text-(length:--font-size-h2)" aria-hidden>
                     &para;
                   </span>
