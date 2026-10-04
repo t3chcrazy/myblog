@@ -6,9 +6,9 @@ import { CATEGORIES, type Post } from "@/lib/posts";
 // "Section Two": one column per desk, separated by vertical hairlines, each
 // with its latest story and up to two more headlines. Empty desks print a
 // "plate uncast" notice instead of disappearing, so the grid holds shape.
-// A desk whose latest story is the front-page lead still lists it, but
-// without the banner: the lead already prints it above, and two banners
-// would share one view-transition name.
+// A desk whose latest story is the front-page lead prints its banner without
+// a <ViewTransition>: the lead's copy above already carries that name, and
+// two elements can't share one view-transition name.
 export function DeskGrid({ posts, frontPageSlug }: { posts: Post[]; frontPageSlug: string }) {
   return (
     <section className="reveal">
@@ -45,10 +45,11 @@ export function DeskGrid({ posts, frontPageSlug }: { posts: Post[]; frontPageSlu
               {lead ? (
                 <>
                   <Link href={`/${lead.slug}`} className="group block mt-ed-sm">
-                    {lead.slug === frontPageSlug ? (
-                      <p className="label-caps text-accent-ink">On the front page</p>
-                    ) : lead.banner && (
-                      <ViewTransition name={`post-banner-${lead.slug}`}>
+                    {lead.slug === frontPageSlug && (
+                      <p className="label-caps text-accent-ink mb-ed-xs">On the front page</p>
+                    )}
+                    {lead.banner && (() => {
+                      const plate = (
                         <div className="press-plate relative aspect-4/3 w-full overflow-hidden bg-paper-raised">
                           <Image
                             src={lead.banner}
@@ -58,8 +59,13 @@ export function DeskGrid({ posts, frontPageSlug }: { posts: Post[]; frontPageSlu
                             className="object-cover press-photo"
                           />
                         </div>
-                      </ViewTransition>
-                    )}
+                      );
+                      return lead.slug === frontPageSlug ? (
+                        plate
+                      ) : (
+                        <ViewTransition name={`post-banner-${lead.slug}`}>{plate}</ViewTransition>
+                      );
+                    })()}
                     <h3 className="font-headline text-(length:--font-size-h3) leading-snug text-ink mt-ed-sm ink-link-target">
                       {lead.title}
                     </h3>
