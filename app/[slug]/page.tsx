@@ -171,14 +171,6 @@ export default async function PostPage({
                 </div>
               </div>
             </ViewTransition>
-            {post.bannerAlt && (
-              <figcaption aria-hidden className="flex justify-between gap-ed-md mt-ed-xs">
-                <span className="font-headline italic text-(length:--font-size-small) text-silver">
-                  Plate I &mdash; {post.bannerAlt}
-                </span>
-                <span className="label-caps shrink-0 text-accent-ink">Fig. 1</span>
-              </figcaption>
-            )}
           </figure>
         )}
         {!post.banner && <div className="mb-ed-xl" />}

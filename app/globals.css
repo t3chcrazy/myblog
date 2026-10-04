@@ -104,14 +104,10 @@ p {
   text-wrap: pretty;
 }
 
-/* Editorial article column: justified, hyphenated, with a print-style drop
-   cap on the opening paragraph — the devices that make a body of text read
-   as a printed column rather than a web page. */
-.editorial-body p:first-of-type {
-  text-align: justify;
-  hyphens: auto;
-}
-
+/* Editorial article column: hyphenated, with a print-style drop cap on the
+   opening paragraph — the devices that make a body of text read as a
+   printed column rather than a web page. Justified only on wider screens:
+   on a phone-width measure, justification opens wide gaps between words. */
 .editorial-body p:first-of-type::first-letter {
   font-family: var(--font-headline);
   font-size: 4.2rem;
@@ -124,8 +120,13 @@ p {
 }
 
 .editorial-body p {
-  text-align: justify;
+  text-align: left;
   hyphens: auto;
+}
+@media (min-width: 768px) {
+  .editorial-body p {
+    text-align: justify;
+  }
 }
 
 /* Fleuron dingbat used as a section divider / end-of-story mark, per the
