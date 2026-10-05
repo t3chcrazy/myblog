@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Analytics } from "@vercel/analytics/next"
 import { newsreader, plusJakartaSans } from "./fonts";
 import { Masthead } from "@/components/Masthead";
 import { Footer } from "@/components/Footer";
+import { GoatCounter } from "@/components/GoatCounter";
 import { BLOG_URL, SITE_DESCRIPTION, SITE_NAME } from "@/lib/site";
 import "./globals.css";
 
@@ -58,6 +60,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </main>
         <Footer />
         <Analytics />
+        {/* useSearchParams needs a Suspense boundary to keep pages prerendered. */}
+        <Suspense>
+          <GoatCounter />
+        </Suspense>
       </body>
     </html>
   );
