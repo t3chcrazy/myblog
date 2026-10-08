@@ -5,7 +5,7 @@ import { pageAlternates } from "@/lib/seo";
 export const metadata: Metadata = {
   title: "About",
   description:
-    "About Auxesis, a weekly AI-powered blog by Abhishek Prashant, and how each post is made.",
+    "About Auxesis, an AI-driven blog experiment by Abhishek Prashant, and how each post is made.",
   alternates: pageAlternates("/author"),
 };
 
@@ -22,15 +22,21 @@ export default function AuthorPage() {
         <div className="h-px bg-ink mt-ed-md mb-ed-lg" />
         <div className="editorial-body">
           <p className="font-headline italic text-(length:--font-size-lead) text-charcoal mb-ed-lg">
-            Auxesis is a weekly, AI-powered blog by Abhishek Prashant covering
-            Web, Mobile, Backend, and AI development.
+            Auxesis is an experiment in AI-driven publishing by Abhishek
+            Prashant: a weekly publication covering Web, Mobile, Backend, and
+            AI development.
           </p>
           <p className="text-(length:--font-size-body) text-ink mb-ed-lg">
-            AI does the heavy lifting: it researches each topic against official
-            docs and reputable engineering sources, then drafts the post to a
-            fixed style guide. The direction stays human. Abhishek keeps the
-            topic backlog, decides what is worth writing about, and reviews
-            every draft as a pull request. Nothing goes live until he merges it.
+            The project began as an inquiry into the practical capabilities of
+            AI beyond demonstrations: whether it can research a subject
+            rigorously, present it clearly, and sustain that standard week
+            after week. Auxesis is where Abhishek pursues that question in
+            depth.
+          </p>
+          <p className="text-(length:--font-size-body) text-ink mb-ed-lg">
+            Each post is researched by AI against official documentation and
+            reputable engineering sources, then drafted in accordance with a
+            fixed style guide.
           </p>
           <p className="text-(length:--font-size-body) text-ink mb-ed-lg">
             The full editorial process, including sourcing rules and the
@@ -38,9 +44,9 @@ export default function AuthorPage() {
             repository.
           </p>
           <p className="text-(length:--font-size-body) text-ink mb-ed-lg">
-            The idea is simple: AI makes it practical to research and write up
-            one new technical concept every week, and a person stays
-            accountable for what gets published.
+            The premise is straightforward: AI makes it practical to examine
+            one new technical concept each week and publish a carefully
+            curated post on it.
           </p>
           <p className="text-(length:--font-size-body) text-ink">
             <a
