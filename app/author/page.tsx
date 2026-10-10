@@ -34,9 +34,10 @@ export default function AuthorPage() {
             depth.
           </p>
           <p className="text-(length:--font-size-body) text-ink mb-ed-lg">
-            Each post is researched by AI against official documentation and
-            reputable engineering sources, then drafted in accordance with a
-            fixed style guide.
+            Each post is researched by Claude, Anthropic&apos;s AI model,
+            against official documentation and reputable engineering sources,
+            then drafted in accordance with a fixed style guide. Abhishek
+            reviews every draft and publishes it.
           </p>
           <p className="text-(length:--font-size-body) text-ink mb-ed-lg">
             The full editorial process, including sourcing rules and the

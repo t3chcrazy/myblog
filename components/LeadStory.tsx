@@ -2,7 +2,7 @@ import { ViewTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { estimateReadTime, getExcerpt, type Post } from "@/lib/posts";
-import { AUTHOR_NAME } from "@/lib/site";
+import { AI_WRITER, AUTHOR_NAME, withBasePath } from "@/lib/site";
 
 // Split an excerpt into two roughly equal paragraphs at a sentence
 // boundary, so the two newspaper columns each open with a full sentence.
@@ -23,7 +23,7 @@ export function LeadStory({ post }: { post: Post }) {
   const minutes = estimateReadTime(post.content);
 
   return (
-    <article className="group/lead">
+    <article id="lead-story" className="group/lead">
       <p className="label-caps text-accent-ink">
         Feature <span aria-hidden>&bull;</span> {post.Category} Desk
       </p>
@@ -35,11 +35,12 @@ export function LeadStory({ post }: { post: Post }) {
       <p className="font-headline italic text-(length:--font-size-lead) text-charcoal mt-ed-sm">
         {post.dek}
       </p>
-      <div className="flex items-center justify-between gap-ed-md mt-ed-md py-ed-xs border-y border-hairline text-(length:--font-size-micro) font-semibold uppercase tracking-[0.08em] text-silver">
+      <div className="flex flex-wrap items-center justify-between gap-x-ed-md gap-y-1 mt-ed-md py-ed-xs border-y border-hairline text-(length:--font-size-micro) font-semibold uppercase tracking-[0.08em] text-silver">
         <span>
-          By {AUTHOR_NAME} &middot; <time dateTime={post.date}>{date}</time>
+          By {AI_WRITER} &middot; Edited by {AUTHOR_NAME} &middot;{" "}
+          <time dateTime={post.date} className="whitespace-nowrap">{date}</time>
         </span>
-        <span>{minutes} min read</span>
+        <span className="whitespace-nowrap">{minutes} min read</span>
       </div>
 
       {post.banner && (
@@ -48,7 +49,7 @@ export function LeadStory({ post }: { post: Post }) {
             <div className="relative aspect-video w-full bg-paper-raised border border-ink p-[3px]">
               <div className="press-plate relative h-full w-full overflow-hidden">
                 <Image
-                  src={post.banner}
+                  src={withBasePath(post.banner)}
                   alt={post.bannerAlt ?? ""}
                   fill
                   sizes="(min-width: 1200px) 50vw, 100vw"
@@ -62,8 +63,12 @@ export function LeadStory({ post }: { post: Post }) {
       )}
 
       <div className="news-columns mt-ed-md text-base text-ink leading-[1.6]">
+        {/* One column on phones: print only the first half there, so
+            "Continued inside" isn't a long scroll below the fold. */}
         {toParagraphs(excerpt).map((para, i) => (
-          <p key={i}>{para}</p>
+          <p key={i} className={i > 0 ? "hidden tablet:block" : undefined}>
+            {para}
+          </p>
         ))}
       </div>
 
@@ -71,7 +76,7 @@ export function LeadStory({ post }: { post: Post }) {
         <div className="h-px bg-hairline flex-1" />
         <Link
           href={`/${post.slug}`}
-          className="group label-caps text-accent-ink hover:text-ink transition-colors"
+          className="group inline-flex items-center min-h-8 label-caps text-accent-ink hover:text-ink transition-colors"
         >
           Continued inside <span className="nudge" aria-hidden>&rarr;</span>
         </Link>

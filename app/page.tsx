@@ -58,12 +58,15 @@ export default function Home() {
     <ViewTransition enter="page-enter" exit="page-exit">
       <div className="mx-auto max-w-[1240px] px-gutter pt-ed-lg pb-ed-xl">
         <JsonLd data={blogLd} />
-        <p className="text-center label-caps text-accent-ink">
-          Front Page Dispatch <span aria-hidden>&bull;</span> This Week&rsquo;s Edition
-        </p>
+        {/* The page's h1: the nameplate in the masthead is a home link shared
+            by every page, so the front page names itself here. */}
+        <h1 className="text-center label-caps text-accent-ink">
+          Front Page Dispatch <span aria-hidden className="hidden tablet:inline">&bull;</span>{" "}
+          <span className="block tablet:inline">This Week&rsquo;s Edition</span>
+        </h1>
         <div className="h-px bg-hairline mt-ed-sm mb-ed-lg" />
 
-        {/* Broadsheet split: wire briefs | lead story | index + circulation,
+        {/* Broadsheet split: wire (by desk) | lead story | index + circulation,
             divided by vertical hairlines. Tablet puts the lead beside the
             index and drops the wire underneath. */}
         <div className="grid grid-cols-1 tablet:grid-cols-8 desktop:grid-cols-12 gap-y-ed-xl">
@@ -74,11 +77,7 @@ export default function Home() {
             <EditionIndex posts={indexed} />
           </aside>
           <aside className="tablet:col-span-8 desktop:col-span-3 desktop:order-1 desktop:pr-ed-lg">
-            <DeskWire
-              posts={posts}
-              leadSlug={lead.slug}
-              indexSlugs={indexed.map((p) => p.slug)}
-            />
+            <DeskWire posts={posts} />
           </aside>
         </div>
 

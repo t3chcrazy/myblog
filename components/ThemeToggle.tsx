@@ -15,8 +15,11 @@ export function ThemeToggle() {
       localStorage.setItem("theme", next ? "dark" : "light");
     };
 
+    // A hidden tab can't run a view transition (the browser aborts it with an
+    // InvalidStateError), so switch instantly there too.
     if (
       !document.startViewTransition ||
+      document.visibilityState !== "visible" ||
       window.matchMedia("(prefers-reduced-motion: reduce)").matches
     ) {
       apply();
@@ -29,7 +32,13 @@ export function ThemeToggle() {
     // as a single sheet.
     root.classList.add("theme-switching");
     const transition = document.startViewTransition(() => flushSync(apply));
-    transition.finished.finally(() => root.classList.remove("theme-switching"));
+    // If the browser skips the animation (tab hidden mid-switch, viewport
+    // resize), `ready` rejects; the theme has still been applied, so the
+    // rejection is expected and mustn't surface as an uncaught error.
+    transition.ready.catch(() => {});
+    transition.finished
+      .catch(() => {})
+      .finally(() => root.classList.remove("theme-switching"));
   }
 
   return (

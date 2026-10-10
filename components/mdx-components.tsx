@@ -2,16 +2,9 @@ import type { ReactNode } from "react";
 import { isValidElement } from "react";
 import Link from "next/link";
 import type { MDXComponents } from "mdx/types";
-import { BASE_PATH } from "@/lib/site";
+import { CopyCodeButton } from "@/components/CopyCodeButton";
+import { withBasePath } from "@/lib/site";
 import { slugify } from "@/lib/slug";
-
-// Plain <img> (unlike next/image and <Link>) doesn't get basePath added, so a
-// root-relative src like "/diagrams/x.svg" would hit the portfolio instead.
-function withBasePath(src: unknown) {
-  return typeof src === "string" && src.startsWith("/") && !src.startsWith("//")
-    ? `${BASE_PATH}${src}`
-    : src;
-}
 
 // Flatten a heading's children (which may include inline <code>, links,
 // etc.) to plain text, so it can be slugified into an anchor id.
@@ -23,13 +16,17 @@ function textOf(node: ReactNode): string {
 }
 
 // Section mark that appears beside a heading on hover, linking to it —
-// so readers can share a deep link to one section of a post.
+// so readers can share a deep link to one section of a post. Hidden from
+// assistive tech and the tab order: inside the heading it would be read as
+// part of the heading's name, and the contents index already links each
+// section.
 function Anchor({ id }: { id: string }) {
   return (
     <a
       href={`#${id}`}
-      aria-label="Link to this section"
-      className="fleuron ml-ed-sm text-[0.7em] no-underline opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+      aria-hidden
+      tabIndex={-1}
+      className="fleuron ml-ed-sm text-[0.7em] no-underline opacity-0 group-hover:opacity-100 transition-opacity"
     >
       &sect;
     </a>
@@ -145,11 +142,16 @@ export const mdxComponents: MDXComponents = {
       {...props}
     />
   ),
+  // The wrapper anchors the copy control to the listing's top-right corner
+  // without scrolling away with a long line.
   pre: (props) => (
-    <pre
-      className="overflow-x-auto my-ed-lg p-ed-md text-(length:--font-size-small) leading-relaxed"
-      {...props}
-    />
+    <div className="code-listing relative">
+      <pre
+        className="overflow-x-auto my-ed-lg p-ed-md text-(length:--font-size-small) leading-relaxed"
+        {...props}
+      />
+      <CopyCodeButton />
+    </div>
   ),
   code: (props) => (
     <code className="font-mono" {...props} />

@@ -1,14 +1,14 @@
-import { ViewTransition } from "react";
+import { ViewTransition, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { CATEGORIES, type Post } from "@/lib/posts";
+import { withBasePath } from "@/lib/site";
 
 // "Section Two": one column per desk, separated by vertical hairlines, each
 // with its latest story and up to two more headlines. Empty desks print a
-// "plate uncast" notice instead of disappearing, so the grid holds shape.
-// A desk whose latest story is the front-page lead prints its banner without
-// a <ViewTransition>: the lead's copy above already carries that name, and
-// two elements can't share one view-transition name.
+// "space reserved" plate instead of disappearing, so the grid holds shape.
+// The front-page lead is skipped here (it's already above), so a desk shows
+// its next story, or a note pointing back up when the lead is its only one.
 export function DeskGrid({ posts, frontPageSlug }: { posts: Post[]; frontPageSlug: string }) {
   return (
     <section className="reveal">
@@ -16,7 +16,7 @@ export function DeskGrid({ posts, frontPageSlug }: { posts: Post[]; frontPageSlu
         <h2 className="label-caps text-ink">Section Two &bull; The Desks</h2>
         <Link
           href="/archive"
-          className="group text-(length:--font-size-micro) font-semibold uppercase tracking-[0.08em] text-accent-ink hover:text-ink transition-colors"
+          className="group inline-flex items-center min-h-6 text-(length:--font-size-micro) font-semibold uppercase tracking-[0.08em] text-accent-ink hover:text-ink transition-colors"
         >
           Full archive <span className="nudge" aria-hidden>&rarr;</span>
         </Link>
@@ -25,7 +25,10 @@ export function DeskGrid({ posts, frontPageSlug }: { posts: Post[]; frontPageSlu
 
       <div className="grid tablet:grid-cols-2 desktop:grid-cols-4 mt-ed-md">
         {CATEGORIES.map((category, i) => {
-          const [lead, ...more] = posts.filter((p) => p.Category === category);
+          const desk = posts.filter((p) => p.Category === category);
+          // The front-page lead is already above; the desk shows its next story.
+          const leadsFront = desk.some((p) => p.slug === frontPageSlug);
+          const [lead, ...more] = desk.filter((p) => p.slug !== frontPageSlug);
           const n = String(i + 1).padStart(2, "0");
           return (
             <div
@@ -35,43 +38,41 @@ export function DeskGrid({ posts, frontPageSlug }: { posts: Post[]; frontPageSlu
               <div className="flex items-baseline justify-between text-(length:--font-size-micro) font-semibold uppercase tracking-[0.08em]">
                 <Link
                   href={`/categories/${category.toLowerCase()}`}
-                  className="text-accent-ink hover:text-ink transition-colors"
+                  className="inline-flex items-center min-h-6 text-accent-ink hover:text-ink transition-colors"
                 >
                   Desk {n} &bull; {category}
                 </Link>
-                <span className="text-silver">{lead ? `${more.length + 1} filed` : "Plate uncast"}</span>
+                <span className="text-silver">
+                  {desk.length > 0 ? `${desk.length} ${desk.length === 1 ? "post" : "posts"}` : "None yet"}
+                </span>
               </div>
 
               {lead ? (
                 <>
                   <Link href={`/${lead.slug}`} className="group block mt-ed-sm">
-                    {lead.slug === frontPageSlug && (
-                      <p className="label-caps text-accent-ink mb-ed-xs">On the front page</p>
-                    )}
-                    {lead.banner && (() => {
-                      const plate = (
+                    {lead.banner ? (
+                      <ViewTransition name={`post-banner-${lead.slug}`}>
                         <div className="press-plate relative aspect-4/3 w-full overflow-hidden bg-paper-raised">
                           <Image
-                            src={lead.banner}
+                            src={withBasePath(lead.banner)}
                             alt={lead.bannerAlt ?? ""}
                             fill
                             sizes="(min-width: 1200px) 290px, (min-width: 768px) 50vw, 100vw"
                             className="object-cover press-photo"
                           />
                         </div>
-                      );
-                      return lead.slug === frontPageSlug ? (
-                        plate
-                      ) : (
-                        <ViewTransition name={`post-banner-${lead.slug}`}>{plate}</ViewTransition>
-                      );
-                    })()}
+                      </ViewTransition>
+                    ) : (
+                      <TextPlate dek={lead.dek} />
+                    )}
                     <h3 className="font-headline text-(length:--font-size-h3) leading-snug text-ink mt-ed-sm ink-link-target">
                       {lead.title}
                     </h3>
-                    <p className="text-(length:--font-size-small) text-charcoal mt-ed-xs leading-relaxed line-clamp-4">
-                      {lead.dek}
-                    </p>
+                    {lead.banner && (
+                      <p className="text-(length:--font-size-small) text-charcoal mt-ed-xs leading-relaxed line-clamp-4">
+                        {lead.dek}
+                      </p>
+                    )}
                   </Link>
                   {more.slice(0, 2).map((post) => (
                     <Link
@@ -84,22 +85,60 @@ export function DeskGrid({ posts, frontPageSlug }: { posts: Post[]; frontPageSlu
                   ))}
                 </>
               ) : (
-                <div className="mt-ed-sm bg-paper-raised tablet:aspect-4/3 flex flex-col items-center justify-center text-center p-ed-md">
-                  <span className="fleuron text-(length:--font-size-h2)" aria-hidden>
-                    &para;
-                  </span>
-                  <p className="font-headline text-(length:--font-size-body) text-ink mt-ed-xs">
-                    Type has not been cast for this week&rsquo;s {category} run
-                  </p>
-                  <p className="text-(length:--font-size-micro) uppercase tracking-[0.08em] text-silver mt-ed-sm">
-                    Chase frame empty &bull; 0 columns set
-                  </p>
-                </div>
+                <ReservedSpace>
+                  {leadsFront ? (
+                    <>
+                      <p className="font-headline text-(length:--font-size-body) text-ink">
+                        This desk&rsquo;s one dispatch leads the front page
+                      </p>
+                      <a
+                        href="#lead-story"
+                        className="inline-flex items-center min-h-6 mt-ed-xs text-(length:--font-size-micro) font-semibold uppercase tracking-[0.08em] text-accent-ink hover:text-ink transition-colors"
+                      >
+                        Back to the lead <span className="ml-1" aria-hidden>&uarr;</span>
+                      </a>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-headline text-(length:--font-size-body) text-ink">
+                        Space reserved for the {category} desk
+                      </p>
+                      <p className="text-(length:--font-size-micro) uppercase tracking-[0.08em] text-silver mt-ed-xs">
+                        No dispatch filed yet
+                      </p>
+                    </>
+                  )}
+                </ReservedSpace>
               )}
             </div>
           );
         })}
       </div>
     </section>
+  );
+}
+
+// A plate held open on the forme: dashed hairline frame, no fill, so an
+// empty slot reads as space set aside rather than a missing image.
+function ReservedSpace({ children }: { children: ReactNode }) {
+  return (
+    <div className="reserved-space mt-ed-sm tablet:aspect-4/3 flex flex-col items-center justify-center text-center p-ed-lg">
+      <span className="fleuron text-(length:--font-size-h3) leading-none mb-ed-sm" aria-hidden>
+        &#10086;
+      </span>
+      {children}
+    </div>
+  );
+}
+
+// Stand-in for a missing banner: the dek set large in italic, so the slot
+// keeps the plate's height and carries the story instead of a blank box.
+function TextPlate({ dek }: { dek: string }) {
+  return (
+    <div className="reserved-space aspect-4/3 w-full flex items-center p-ed-lg">
+      <p className="font-headline italic text-(length:--font-size-lead) leading-snug text-charcoal line-clamp-6">
+        {dek}
+      </p>
+    </div>
   );
 }

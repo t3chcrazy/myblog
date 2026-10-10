@@ -16,7 +16,6 @@ export default function NotFound() {
       </h1>
       <div className="h-px bg-ink mt-ed-md mb-ed-lg" />
       <EmptyState
-        title="Missing From the Archive"
         body="The page you asked for isn't in any edition — it may have been moved, or the link was misprinted. Try the search bar above, or head back to the front page."
       />
     </div>

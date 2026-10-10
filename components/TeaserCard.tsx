@@ -2,6 +2,7 @@ import { ViewTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { Post } from "@/lib/posts";
+import { withBasePath } from "@/lib/site";
 
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString("en-US", {
@@ -32,7 +33,7 @@ export function TeaserCard({
           <ViewTransition name={`post-banner-${post.slug}`}>
             <span className="press-plate relative block aspect-video w-full overflow-hidden bg-paper-raised mb-ed-md">
               <Image
-                src={post.banner}
+                src={withBasePath(post.banner)}
                 alt={post.bannerAlt ?? ""}
                 fill
                 sizes="(min-width: 1200px) 360px, (min-width: 768px) 45vw, 100vw"
@@ -41,12 +42,12 @@ export function TeaserCard({
             </span>
           </ViewTransition>
         ) : (
-          // Blank plate keeps titles aligned across the grid row.
-          <span
-            aria-hidden
-            className="flex aspect-video w-full items-center justify-center bg-paper-raised mb-ed-md text-(length:--font-size-h2) text-silver"
-          >
-            &#10086;
+          // No banner: the dek fills the plate, set large, so titles stay
+          // aligned across the grid row without a blank box.
+          <span className="reserved-space flex aspect-video w-full items-center p-ed-md mb-ed-md">
+            <span className="font-headline italic text-(length:--font-size-lead) leading-snug text-charcoal line-clamp-4">
+              {post.dek}
+            </span>
           </span>
         )}
         <span className="flex items-baseline justify-between gap-ed-sm text-(length:--font-size-micro) uppercase tracking-[0.15em]">
@@ -58,9 +59,11 @@ export function TeaserCard({
         <span className="block font-headline text-(length:--font-size-h3) font-semibold text-ink mt-ed-sm leading-[1.2] ink-link-target">
           {post.title}
         </span>
-        <span className="block font-headline italic text-(length:--font-size-body) text-charcoal mt-ed-sm leading-[1.4] pb-1 line-clamp-3">
-          {post.dek}
-        </span>
+        {post.banner && (
+          <span className="block font-headline italic text-(length:--font-size-body) text-charcoal mt-ed-sm leading-[1.4] pb-1 line-clamp-3">
+            {post.dek}
+          </span>
+        )}
       </Link>
     );
   }
@@ -72,7 +75,7 @@ export function TeaserCard({
           <ViewTransition name={`post-banner-${post.slug}`}>
             <div className="press-plate relative aspect-video w-full overflow-hidden mb-ed-lg bg-paper-raised">
               <Image
-                src={post.banner}
+                src={withBasePath(post.banner)}
                 alt={post.bannerAlt ?? ""}
                 fill
                 sizes="(min-width: 768px) 60vw, 100vw"
@@ -113,7 +116,7 @@ export function TeaserCard({
         <ViewTransition name={`post-banner-${post.slug}`}>
           <span className="press-plate relative aspect-video w-full lg:w-70 lg:shrink-0 overflow-hidden self-start bg-paper-raised hidden sm:block">
             <Image
-              src={post.banner}
+              src={withBasePath(post.banner)}
               alt={post.bannerAlt ?? ""}
               fill
               sizes="(min-width: 1024px) 280px, 100vw"
@@ -121,6 +124,16 @@ export function TeaserCard({
             />
           </span>
         </ViewTransition>
+      )}
+      {!post.banner && (
+        // Holds the plate column on wide rows so every title starts on the
+        // same line; stacked rows (narrow) simply have no image.
+        <span
+          aria-hidden
+          className="reserved-space hidden lg:flex aspect-video lg:w-70 lg:shrink-0 self-start items-center justify-center fleuron text-(length:--font-size-h3)"
+        >
+          &#10086;
+        </span>
       )}
       <span className="min-w-0">
         <span className="font-headline text-(length:--font-size-h3) font-semibold text-ink ink-link-target">

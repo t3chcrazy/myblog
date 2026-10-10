@@ -1,10 +1,6 @@
 import Link from "next/link";
 import { CATEGORIES, type Post } from "@/lib/posts";
 
-function shortDate(date: string) {
-  return new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
 function RailHeading({ title, aside }: { title: string; aside?: string }) {
   return (
     <div className="flex items-baseline justify-between border-b border-ink pb-ed-xs mb-ed-sm">
@@ -18,63 +14,44 @@ function RailHeading({ title, aside }: { title: string; aside?: string }) {
   );
 }
 
-// Left rail: one wire brief per desk — the newest story from that desk
-// that isn't already on the page. If every story from a desk is already
-// shown (lead or index), point to it instead of repeating the headline.
-// Keeps the front page three-columned even with only a handful of posts.
-export function DeskWire({
-  posts,
-  leadSlug,
-  indexSlugs,
-}: {
-  posts: Post[];
-  leadSlug: string;
-  indexSlugs: string[];
-}) {
-  const onPage = new Set([leadSlug, ...indexSlugs]);
+function shortDate(date: string) {
+  return new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+}
+
+// Left rail: the wire, read by desk — where each desk stands this edition
+// (how many dispatches it has filed, and when it last filed), each a way into
+// that desk. A directory rather than headlines, so it never repeats a story
+// already on the page.
+export function DeskWire({ posts }: { posts: Post[] }) {
   return (
     <div>
       <RailHeading title="The Wire" aside="By Desk" />
       <ul>
         {CATEGORIES.map((category) => {
           const desk = posts.filter((p) => p.Category === category);
-          const latest = desk.find((p) => !onPage.has(p.slug));
-          const newest = desk[0];
-          const pointer = !latest && newest
-            ? newest.slug === leadSlug
-              ? "Leads this edition, centre column."
-              : `See index No. ${String(indexSlugs.indexOf(newest.slug) + 1).padStart(2, "0")}.`
-            : null;
+          const latest = desk[0];
           return (
-            <li key={category} className="py-ed-sm border-b border-hairline last:border-b-0">
-              <div className="flex items-baseline justify-between text-(length:--font-size-micro) font-semibold uppercase tracking-[0.08em]">
-                <Link
-                  href={`/categories/${category.toLowerCase()}`}
-                  className="text-accent-ink hover:text-ink transition-colors"
-                >
-                  {category}
-                </Link>
-                <span className="text-silver">
-                  {newest ? shortDate(newest.date) : "Awaiting copy"}
+            <li key={category} className="border-b border-hairline last:border-b-0">
+              <Link
+                href={`/categories/${category.toLowerCase()}`}
+                className="group flex items-baseline justify-between gap-ed-sm py-ed-sm"
+              >
+                <span className="font-headline text-(length:--font-size-h3) leading-tight text-ink ink-link-target">
+                  {category} Desk
                 </span>
-              </div>
-              {latest ? (
-                <Link href={`/${latest.slug}`} className="group block mt-1">
-                  <span className="font-headline text-(length:--font-size-body) leading-snug text-ink ink-link-target">
-                    {latest.title}
-                  </span>
-                  <span className="block text-(length:--font-size-small) text-charcoal mt-1 line-clamp-3">
-                    {latest.dek}
-                  </span>
-                </Link>
-              ) : (
-                <p className="font-headline italic text-(length:--font-size-small) text-silver mt-1">
-                  {pointer ?? "Type has not yet been cast for this desk."}
-                </p>
-              )}
-              <p className="text-(length:--font-size-micro) uppercase tracking-[0.08em] text-silver mt-1">
-                {desk.length} {desk.length === 1 ? "dispatch" : "dispatches"} on file
-              </p>
+                <span className="shrink-0 text-right text-(length:--font-size-micro) font-semibold uppercase tracking-[0.08em] text-silver">
+                  {latest ? (
+                    <>
+                      {desk.length} {desk.length === 1 ? "dispatch" : "dispatches"}
+                      <span className="block font-normal">
+                        Last filed <time dateTime={latest.date}>{shortDate(latest.date)}</time>
+                      </span>
+                    </>
+                  ) : (
+                    "None filed yet"
+                  )}
+                </span>
+              </Link>
             </li>
           );
         })}
@@ -119,7 +96,7 @@ export function EditionIndex({ posts }: { posts: Post[] }) {
           Delivered every Saturday
         </p>
         <p className="text-(length:--font-size-small) opacity-75 mt-ed-sm leading-relaxed">
-          One long-form dispatch a week. No trackers, full text in the feed.
+          One long-form dispatch a week. Headlines and summaries in the feed, each linking to the full post.
         </p>
         <a
           href="/blog/feed.xml"
@@ -132,8 +109,9 @@ export function EditionIndex({ posts }: { posts: Post[] }) {
       <div className="border border-hairline p-ed-md">
         <p className="label-caps text-accent-ink">Colophon</p>
         <p className="text-(length:--font-size-small) text-charcoal mt-ed-xs leading-relaxed">
-          Set in Newsreader and Plus Jakarta Sans. Researched, written and
-          typeset each week by an AI; every claim is cited to its source.
+          Set in Newsreader and Plus Jakarta Sans. Researched and written each
+          week by Claude, reviewed and published by Abhishek Prashant; every
+          claim is cited to its source.
         </p>
       </div>
     </div>

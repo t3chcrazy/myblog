@@ -28,8 +28,10 @@ export function MastheadNav() {
             : pathname.startsWith(item.href);
         return (
           <span key={item.href} className="flex items-center">
+            {/* Below tablet the row wraps, and a bullet would lead the
+                second line; the items' own padding separates them there. */}
             {i > 0 && (
-              <span aria-hidden className="mx-ed-sm text-hairline">
+              <span aria-hidden className="hidden tablet:inline mx-ed-sm text-hairline">
                 &bull;
               </span>
             )}
@@ -38,8 +40,8 @@ export function MastheadNav() {
               aria-current={active ? "page" : undefined}
               className={
                 active
-                  ? "my-ed-xs px-ed-sm py-[2px] bg-ink text-paper"
-                  : "my-ed-xs px-ed-sm py-[2px] hover:text-accent-ink transition-colors"
+                  ? "my-ed-xs px-ed-sm py-1.5 tablet:py-[3px] bg-ink text-paper"
+                  : "my-ed-xs px-ed-sm py-1.5 tablet:py-[3px] hover:text-accent-ink transition-colors"
               }
             >
               {item.label}

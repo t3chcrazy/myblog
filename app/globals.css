@@ -11,15 +11,17 @@
   --breakpoint-tablet: 768px;
   --breakpoint-desktop: 1200px;
 
-  /* Light theme palette — exact values from the Stitch design system. */
+  /* Light theme palette, from the Stitch design system. Silver and
+     accent-ink are a shade darker than Stitch's #7d766e / #96632a: both set
+     11–12px datelines and labels, which need 4.5:1 on paper and paper-raised. */
   --color-ink: #221d17;
   --color-charcoal: #4a443b;
-  --color-silver: #7d766e;
+  --color-silver: #6e675f;
   --color-hairline: #dcd4c4;
   --color-paper: #faf6ee;
   --color-paper-raised: #f1ede6;
   --color-accent: #e8b978;
-  --color-accent-ink: #96632a;
+  --color-accent-ink: #8f5e28;
 
   /* Font families, wired to next/font variables in app/layout.tsx. */
   --font-headline: var(--font-newsreader), Georgia, serif;
@@ -74,10 +76,11 @@
 
 .dark {
   color-scheme: dark;
-  /* Dark theme palette — exact values from the Stitch design system. */
+  /* Dark theme palette, from the Stitch design system (silver lifted from
+     #8d8072 for 4.5:1 on paper-raised). */
   --color-ink: #f2ecdd;
   --color-charcoal: #a8a095;
-  --color-silver: #8d8072;
+  --color-silver: #958878;
   --color-hairline: #362f27;
   --color-paper: #1c1712;
   --color-paper-raised: #221d17;
@@ -104,10 +107,12 @@ p {
   text-wrap: pretty;
 }
 
-/* Editorial article column: hyphenated, with a print-style drop cap on the
-   opening paragraph — the devices that make a body of text read as a
-   printed column rather than a web page. Justified only on wider screens:
-   on a phone-width measure, justification opens wide gaps between words. */
+/* Editorial article column: a print-style drop cap on the opening paragraph
+   makes the body read as a printed column rather than a web page. Set
+   ragged-right: a web browser justifies line by line, without a press's
+   word-spacing control, so a justified sans column opens uneven gaps.
+   Hyphenation only breaks long words (7+ letters, 4 either side), and only
+   where the measure is wide enough not to need it on every other line. */
 .editorial-body p:first-of-type::first-letter {
   font-family: var(--font-headline);
   font-size: 4.2rem;
@@ -121,11 +126,12 @@ p {
 
 .editorial-body p {
   text-align: left;
-  hyphens: auto;
+  hyphens: manual;
 }
 @media (min-width: 768px) {
   .editorial-body p {
-    text-align: justify;
+    hyphens: auto;
+    hyphenate-limit-chars: 7 4 4;
   }
 }
 
@@ -426,10 +432,12 @@ html {
    opens rivers of white space between words. */
 .news-columns {
   text-align: left;
-  hyphens: auto;
+  hyphens: manual;
 }
 @media (min-width: 768px) {
   .news-columns {
+    hyphens: auto;
+    hyphenate-limit-chars: 7 4 4;
     columns: 2;
     column-gap: 1.5rem;
     column-rule: 1px solid var(--color-hairline);
@@ -480,6 +488,7 @@ html {
 .edition-toggle {
   display: inline-flex;
   align-items: center;
+  min-height: 2rem; /* touch target; the track itself is only 22px */
   gap: 0.5rem;
   font-family: var(--font-headline);
   font-size: 0.9375rem;
@@ -630,8 +639,77 @@ html.dark .edition-knob [data-glyph="day"] {
   text-transform: uppercase;
   color: #e8b978;
 }
-[data-rehype-pretty-code-title] + pre[data-language]::before {
+[data-rehype-pretty-code-title] + .code-listing pre[data-language]::before {
   content: none;
+}
+/* With a title bar there's no listing line inside the block, so clear the
+   first code line from under the copy control. */
+[data-rehype-pretty-code-title] + .code-listing pre {
+  padding-top: 2.25rem;
+}
+
+/* github-dark's comment grey (#6a737d) is 3.5:1 on the press-room black;
+   lift comments to a warm grey at 5.4:1. Shiki writes colours inline. */
+[data-rehype-pretty-code-figure] span[style*="#6A737D" i] {
+  color: #9a9188 !important;
+}
+
+/* Copy control, set on the listing line opposite "Listing · lang". Always
+   visible (there's no hover on touch), quiet until pointed at. */
+.code-copy {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.75rem;
+  min-height: 1.75rem;
+  padding: 0.25rem 0.6rem;
+  font-family: var(--font-body);
+  font-size: var(--font-size-micro);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  color: #a8a095;
+  background: #221d17;
+  border: 1px solid #4a443b;
+  transition: color 150ms ease, border-color 150ms ease;
+}
+.code-copy:hover,
+.code-copy:focus-visible {
+  color: #f2ecdd;
+  border-color: #a8a095;
+}
+.code-copy:focus-visible {
+  outline-color: #e8b978;
+  outline-offset: 2px;
+}
+.code-copy[data-state="copied"] {
+  color: #e8b978;
+  border-color: #e8b978;
+}
+
+/* Inline code in running text: set a size below the body so the wider mono
+   face doesn't outweigh the words around it, on a faint raised slug. In a
+   headline it takes the heading's size down a step rather than its own. */
+.editorial-body :not(pre) > code {
+  font-size: 0.86em;
+  padding: 0.05em 0.3em;
+  background: var(--color-paper-raised);
+  border: 1px solid var(--color-hairline);
+  overflow-wrap: anywhere;
+}
+/* Tables scroll sideways instead (see the table wrapper in
+   mdx-components), so an identifier there stays whole rather than
+   splitting mid-word in a narrow cell. */
+.editorial-body :is(td, th) > code {
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+.editorial-body :is(h2, h3) > code {
+  font-size: 0.8em;
+  font-weight: 500;
+  background: none;
+  border: 0;
+  padding: 0;
 }
 
 /* Search-hit highlighting in Pagefind excerpts. */
@@ -639,6 +717,12 @@ html.dark .edition-knob [data-glyph="day"] {
   background: color-mix(in oklab, var(--color-accent) 55%, transparent);
   color: var(--color-ink);
   padding: 0 2px;
+}
+
+/* Space held open on the page (an empty desk, a story without a plate):
+   a dashed frame on bare paper, like a slot ruled off on a paste-up. */
+.reserved-space {
+  border: 1px dashed color-mix(in oklab, var(--color-ink) 28%, transparent);
 }
 
 /* Crop marks at the corners of a sheet, as on a printer's proof. */

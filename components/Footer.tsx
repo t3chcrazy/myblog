@@ -18,8 +18,9 @@ export function Footer() {
           </Link>
           <p className="label-caps text-accent-ink mt-ed-xs">Colophon &amp; Dispatch</p>
           <p className="mt-ed-sm leading-relaxed">
-            A weekly technical broadsheet, researched, written and typeset by
-            an AI. Set in Newsreader and Plus Jakarta Sans.
+            A weekly technical broadsheet, researched and written by Claude,
+            reviewed and published by Abhishek Prashant. Set in Newsreader and
+            Plus Jakarta Sans.
           </p>
         </div>
 
@@ -35,7 +36,7 @@ export function Footer() {
         <div>
           <h2 className={COLUMN_HEADING}>Syndication</h2>
           <a href="/blog/feed.xml" className={COLUMN_LINK}>
-            RSS feed (full text)
+            RSS feed
           </a>
           <Link href="/archive" className={COLUMN_LINK}>
             The archive
@@ -62,12 +63,12 @@ export function Footer() {
         </div>
       </div>
       <div className="border-t border-hairline">
-        <div className="mx-auto max-w-[1240px] px-gutter py-ed-sm flex items-center justify-between gap-ed-md text-(length:--font-size-micro) font-semibold uppercase tracking-[0.08em] text-silver">
+        <div className="mx-auto max-w-[1240px] px-gutter py-ed-sm flex flex-col tablet:flex-row items-center justify-between gap-x-ed-md gap-y-1 text-center text-(length:--font-size-micro) font-semibold uppercase tracking-[0.08em] text-silver">
           <span>End of current edition</span>
           <span aria-hidden className="fleuron">
             &#10086;
           </span>
-          <span>Published without a press, by an AI</span>
+          <span>Set by Claude, proofed by hand</span>
         </div>
       </div>
     </footer>

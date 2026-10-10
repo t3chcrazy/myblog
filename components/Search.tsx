@@ -172,7 +172,7 @@ export function Search() {
           >
             <MagnifierIcon className="text-charcoal mr-ed-sm" />
             <span className="flex-1 text-(length:--font-size-body) text-silver truncate">
-              Search dispatches, topics, or tags&hellip;
+              Search dispatches<span className="hidden sm:inline">, topics, or tags</span>&hellip;
             </span>
             <kbd className="hidden sm:inline text-(length:--font-size-micro) font-mono border border-hairline bg-paper-raised px-ed-xs py-px text-silver">
               &#8984;K

@@ -4,12 +4,15 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Search } from "@/components/Search";
 import { MastheadNav } from "@/components/MastheadNav";
 
-function today() {
-  return new Date().toLocaleDateString("en-US", {
+// The edition's dateline is the date the latest issue went out, not the
+// reader's today: a printed paper doesn't change its date overnight.
+function issueDate(date: string | undefined) {
+  return (date ? new Date(date) : new Date()).toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
     day: "numeric",
     year: "numeric",
+    timeZone: "UTC",
   });
 }
 
@@ -18,7 +21,8 @@ const FIRST_YEAR = 2026;
 const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
 
 export function Masthead() {
-  const issue = getAllPosts().length;
+  const posts = getAllPosts();
+  const issue = posts.length;
   const volume = ROMAN[new Date().getFullYear() - FIRST_YEAR] ?? "I";
 
   return (
@@ -31,7 +35,7 @@ export function Masthead() {
             <span aria-hidden>&bull;</span>
             <span>No. {issue}</span>
             <span aria-hidden className="hidden tablet:inline">&bull;</span>
-            <span className="hidden tablet:inline">{today()}</span>
+            <span className="hidden tablet:inline">{issueDate(posts[0]?.date)}</span>
           </span>
           <ThemeToggle />
         </div>
@@ -61,7 +65,7 @@ export function Masthead() {
           <div className="ear hidden desktop:block p-ed-sm text-center">
             <p className="label-caps text-accent-ink">Est. {FIRST_YEAR}</p>
             <p className="font-headline italic text-(length:--font-size-small) text-charcoal mt-1 leading-snug">
-              Set, proofed &amp; printed by an AI
+              Set by Claude, proofed by hand
             </p>
           </div>
         </div>

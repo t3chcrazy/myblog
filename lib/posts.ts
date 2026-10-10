@@ -3,6 +3,7 @@ import path from "path";
 import matter from "gray-matter";
 import { CATEGORIES, type Category } from "@/lib/categories";
 import { slugify } from "@/lib/slug";
+import { smartQuotes, smartQuotesOutsideCode } from "@/lib/typography";
 
 export { CATEGORIES };
 export type { Category };
@@ -37,7 +38,16 @@ export function getAllPosts(): Post[] {
   const posts = files.map((file) => {
     const raw = fs.readFileSync(path.join(POSTS_DIR, file), "utf8");
     const { data, content } = matter(raw);
-    return { ...(data as PostFrontmatter), content };
+    const fm = data as PostFrontmatter;
+    // Front matter renders as plain text, outside the MDX pipeline that
+    // curls the body's quotes, so curl the display strings here.
+    return {
+      ...fm,
+      title: smartQuotesOutsideCode(fm.title),
+      dek: smartQuotesOutsideCode(fm.dek),
+      bannerAlt: fm.bannerAlt && smartQuotes(fm.bannerAlt),
+      content,
+    };
   });
 
   return posts.sort(
@@ -112,8 +122,7 @@ export function getHeadings(content: string): { id: string; text: string }[] {
     .split("\n")
     .filter((line) => line.startsWith("## "))
     .map((line) => {
-      const text = line
-        .slice(3)
+      const text = smartQuotesOutsideCode(line.slice(3))
         .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // links -> link text
         .replace(/[`*_]/g, "")
         .trim();
@@ -124,13 +133,15 @@ export function getHeadings(content: string): { id: string; text: string }[] {
 /** Plain-text excerpt of MDX body content, stripped of markdown/JSX syntax,
  * truncated at a word boundary. Used for the front-page lead preview. */
 export function getExcerpt(content: string, maxChars = 600): string {
-  const plain = content
-    .replace(/```[\s\S]*?```/g, " ") // fenced code blocks (no useful excerpt text)
-    .replace(/<Primer>[\s\S]*?<\/Primer>/g, " ") // background briefing isn't the story
+  const plain = smartQuotesOutsideCode(
+    content
+      .replace(/```[\s\S]*?```/g, " ") // fenced code blocks (no useful excerpt text)
+      .replace(/<Primer>[\s\S]*?<\/Primer>/g, " ") // background briefing isn't the story
+      .replace(/<[^>]+>/g, " ") // JSX/HTML tags, before quotes in attributes get curled
+  )
     .replace(/`([^`]*)`/g, "$1") // inline code -> keep the text, drop backticks
     .replace(/!\[[^\]]*\]\([^)]*\)/g, " ") // images
     .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // links -> link text
-    .replace(/<[^>]+>/g, " ") // JSX/HTML tags
     .replace(/^#+\s+(.+)$/gm, "$1.") // heading markers -> keep text, end with a period
     .replace(/[*_>]/g, "") // remaining markdown punctuation (not "-", used in real prose)
     .replace(/\s+/g, " ")
@@ -139,6 +150,27 @@ export function getExcerpt(content: string, maxChars = 600): string {
   if (plain.length <= maxChars) return plain;
   const cut = plain.slice(0, maxChars);
   return cut.slice(0, cut.lastIndexOf(" ")) + "…";
+}
+
+/** The external sources a post cites: its inline markdown links outside code,
+ * in order of first appearance, one entry per page (fragments ignored).
+ * Listed under "Sources" at the end of the post as host + path: inline link
+ * text is phrased for its sentence ("Next.js is explicit"), so the URL is
+ * the clearer name for the source. */
+export function getSources(content: string): { url: string; host: string; path: string }[] {
+  const prose = content.replace(/```[\s\S]*?```/g, "").replace(/`[^`]*`/g, "");
+  const seen = new Map<string, { url: string; host: string; path: string }>();
+  for (const [, url] of prose.matchAll(/(?<!!)\[[^\]]+\]\((https?:\/\/[^)\s]+)\)/g)) {
+    const page = url.replace(/#.*$/, "");
+    if (seen.has(page)) continue;
+    const { hostname, pathname, search } = new URL(page);
+    seen.set(page, {
+      url,
+      host: hostname.replace(/^www\./, ""),
+      path: decodeURIComponent(pathname.replace(/\/$/, "") + search),
+    });
+  }
+  return [...seen.values()];
 }
 
 export function estimateReadTime(content: string): number {
