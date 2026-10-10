@@ -125,6 +125,26 @@ export const mdxComponents: MDXComponents = {
   ol: (props) => (
     <ol className="list-decimal pl-6 mb-ed-lg text-(length:--font-size-body)" {...props} />
   ),
+  // GFM tables print as ruled tabular matter: ink rules above and below,
+  // hairlines between rows, top-aligned cells. The wrapper scrolls on narrow
+  // screens rather than letting a long code token spill into the next column.
+  table: (props) => (
+    <div className="overflow-x-auto my-ed-xl border-y border-ink">
+      <table className="w-full border-collapse text-left text-(length:--font-size-small) tablet:text-[0.9375rem] leading-snug" {...props} />
+    </div>
+  ),
+  th: (props) => (
+    <th
+      className="label-caps text-left align-bottom px-ed-sm py-ed-sm border-b border-ink first:pl-0 last:pr-0"
+      {...props}
+    />
+  ),
+  td: (props) => (
+    <td
+      className="text-left align-top px-ed-sm py-ed-sm border-b border-hairline text-ink first:pl-0 last:pr-0 [tr:last-child_&]:border-b-0"
+      {...props}
+    />
+  ),
   pre: (props) => (
     <pre
       className="overflow-x-auto my-ed-lg p-ed-md text-(length:--font-size-small) leading-relaxed"
