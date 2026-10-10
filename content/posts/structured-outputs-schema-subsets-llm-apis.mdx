@@ -1,0 +1,129 @@
+---
+title: "Structured outputs: three APIs, three JSON Schema subsets"
+slug: structured-outputs-schema-subsets-llm-apis
+date: "2026-10-10"
+Category: AI
+dek: "Claude, OpenAI and Gemini all promise schema-valid JSON, but each accepts a different slice of JSON Schema, and none of them checks your business rules."
+tags: ["llm-apis", "structured-outputs", "tool-calling", "json-schema"]
+appliesTo: "Claude API (output_config.format), OpenAI Structured Outputs, Gemini API; docs as of October 2026"
+banner: "/banners/structured-outputs-schema-subsets-llm-apis.png"
+bannerAlt: "Engraving of a metal plate with differently shaped keyhole slots and a single key lying beside them."
+---
+
+Anthropic, OpenAI and Google now each offer schema-constrained output for both final answers and tool arguments, and the pitch is the same: the response will parse and match your schema. The part that bites in practice is that each provider implements a different subset of JSON Schema, so a schema written for one is often a 400 error on another, and the SDK helpers that smooth this over do it in opposite directions. The guarantee also stops at structure. A schema-valid payload can still carry a negative amount or a four-letter currency code, and the docs say so. This post lays out the three subsets side by side, shows what the SDKs do to your schema, and ends with a rule for writing schemas that survive a provider switch.
+
+<Primer>
+
+**Assumes you know:** JSON Schema basics (`type`, `required`, `enum`) and what a tool/function call is in an LLM API.
+
+**Key terms**
+
+- **Constrained decoding:** compiling the schema into a grammar and, at each step of generation, masking out tokens that would break it, so the model can only emit valid output.
+- **Strict mode:** the flag that turns constrained decoding on for tool arguments (`strict: true` on Claude and OpenAI tool definitions). OpenAI describes tool calls without it as best effort.
+- **Schema subset:** the part of the JSON Schema language a provider's grammar compiler accepts. Keywords outside it are rejected or ignored, depending on the provider.
+- **Refusal:** a response where the model declines for safety reasons; the refusal text takes precedence over the schema.
+
+**The story so far:** before schema-constrained decoding, the options were JSON mode (valid JSON, no schema guarantee) or prompting for a format and retrying on parse failures.
+
+**Read first:** Anthropic's [structured outputs guide](https://platform.claude.com/docs/en/build-with-claude/structured-outputs) covers the mechanism and the Claude-side limits.
+
+</Primer>
+
+## The guarantee is about structure, and the vendors say so
+
+Claude's documentation says its structured outputs ["guarantee schema-compliant responses through constrained decoding"](https://platform.claude.com/docs/en/build-with-claude/structured-outputs#why-use-structured-outputs), and that `strict: true` on a tool means [the tool name is always valid and the input follows the schema](https://platform.claude.com/docs/en/agents-and-tools/tool-use/strict-tool-use). OpenAI describes the same split: its older JSON mode [outputs valid JSON but does not adhere to a schema](https://developers.openai.com/api/docs/guides/structured-outputs#structured-outputs-vs-json-mode), while Structured Outputs does. Gemini's page is blunter about the limit: ["While output is syntactically correct JSON, always validate values in your application."](https://ai.google.dev/gemini-api/docs/structured-output#best-practices)
+
+A September 2026 preprint on [constrained decoding in small open models](https://arxiv.org/abs/2609.23742) quantifies the same boundary. Across five 0.6B-4B models, constrained decoding raised schema validity from a native 78.6-92.9% to 100%, yet the authors conclude that "schema conformance is necessary but not sufficient for semantic correctness." The models are far smaller than the hosted ones, so treat the numbers as an illustration of the mechanism, not a measurement of Claude or GPT.
+
+Three failure modes remain even when the grammar is working, all documented by Anthropic in its [invalid outputs section](https://platform.claude.com/docs/en/build-with-claude/structured-outputs#invalid-outputs):
+
+- A refusal returns `stop_reason: "refusal"` with a 200 status, is billed, and "may not match your schema".
+- A response cut off at `max_tokens` is incomplete JSON.
+- String `enum` and `const` values can come back with different capitalization, for example `"Conversation Topic 3"` for a schema value of `"Conversation topic 3"`, with no error.
+
+![Flow from your Pydantic or Zod model through an SDK helper, the provider's grammar and the model's output to your own validation, with only the grammar and output stages guaranteeing structure.](/diagrams/structured-outputs-schema-subsets-llm-apis-1.svg)
+
+## Each provider accepts a different slice of JSON Schema
+
+The three docs agree that they support "a subset." They disagree on which one. The differences that matter most when porting a schema:
+
+| Feature | Claude | OpenAI | Gemini |
+|---|---|---|---|
+| Optional fields | Allowed (capped at 24 optional parameters per request) | Not allowed: every property must be `required`; emulate with a `null` union | Allowed via `required` |
+| `minimum` / `maximum` | Rejected with a 400 | Supported | Supported |
+| `minLength` / `maxLength` | Rejected with a 400 | Not listed as supported | Not listed |
+| `minItems` / `maxItems` | `minItems` of 0 or 1 only | Supported | Supported |
+| Recursive schemas | Not supported | Supported | Supported (`"$ref": "#"` example) |
+| `additionalProperties` | Must be `false` | Must be `false` | Boolean or schema |
+| Other limits | 20 strict tools; 16 union-typed parameters | 5,000 properties, 10 nesting levels; root must be an object, not `anyOf` | "Very large or deeply nested schemas may be rejected" |
+
+Sources: Claude's [JSON Schema limitations](https://platform.claude.com/docs/en/build-with-claude/structured-outputs#json-schema-limitations) and [explicit limits](https://platform.claude.com/docs/en/build-with-claude/structured-outputs#explicit-limits); OpenAI's [supported schemas](https://developers.openai.com/api/docs/guides/structured-outputs#supported-schemas) and its notes on [required fields and size limits](https://developers.openai.com/api/docs/guides/structured-outputs#all-fields-must-be-required); Gemini's [JSON schema support](https://ai.google.dev/gemini-api/docs/structured-output#json-schema-support). "Not listed" means the page's keyword lists omit it, which is weaker evidence than a documented rejection.
+
+Two rows carry most of the porting pain. A schema with `"minimum": 0` is fine on OpenAI and Gemini and a 400 on Claude. A schema with an optional field is fine on Claude and Gemini and rejected by OpenAI strict mode until every property is listed in `required`. A 2025 evaluation of constrained decoding, [JSONSchemaBench](https://arxiv.org/abs/2501.10868) (last revised February 2025, so the figures are dated), saw the same pattern in the hosted engines of its day: they had the lowest coverage of JSON Schema features but "very high compliance rates, indicating that their providers have taken a more conservative strategy." The design is consistent. A provider ships a narrower subset it can compile reliably, and the cost lands on schema authors.
+
+## SDK helpers rewrite your schema, in opposite directions
+
+Both vendors ship helpers that derive a schema from a Pydantic or Zod model. What they send over the wire differs. I ran the same model through each SDK's offline helper (`anthropic` 1.13.0, `openai` 3.28.0, `pydantic` 2.14.0, Python 3):
+
+```python
+from typing import Optional
+from pydantic import BaseModel, Field
+from anthropic import transform_schema
+import openai
+
+class Invoice(BaseModel):
+    vendor: str
+    total_cents: int = Field(ge=0, le=10_000_000)
+    currency: str = Field(min_length=3, max_length=3)
+    note: Optional[str] = None
+
+transform_schema(Invoice)           # what Claude receives
+openai.pydantic_function_tool(Invoice)  # what OpenAI receives
+```
+
+For Claude, `total_cents` arrives as a bare `integer` whose description reads `{maximum: 10000000, minimum: 0}`, `currency` as a bare `string` described as `{maxLength: 3, minLength: 3}`, `additionalProperties` is set to `false`, and `note` stays optional. For OpenAI, the bounds are kept as real keywords, `strict` is `true`, and `note` is moved into `required` as a `string | null` union.
+
+This matches the [Claude docs' account of SDK transformation](https://platform.claude.com/docs/en/build-with-claude/structured-outputs#how-sdk-transformation-works): unsupported constraints are removed and written into the description, which means the model is asked to respect the bound rather than forced to. The docs add that "a helper that validates responses still enforces every constraint in your code." If you send the raw schema instead of using a validating helper, the bound is a sentence in a description and nothing else.
+
+OpenAI has a quieter behavior on the tool-calling side. With the Responses API and `strict` omitted, [it will "attempt to normalize your schema into strict mode when possible, and will fall back to non-strict, best-effort function calling"](https://developers.openai.com/api/docs/guides/function-calling#strict-mode) if the schema is not compatible, and the returned tool shows `strict: false`. Chat Completions stays non-strict unless you opt in. A schema that quietly fell back to best effort is easy to miss unless a test checks the flag.
+
+## Validate the part the grammar cannot see
+
+The following payload satisfies the schema Claude receives for `Invoice` above, since all keys are present and typed correctly, and violates the original model:
+
+```python
+import json, jsonschema
+from pydantic import ValidationError
+
+payload = '{"vendor": "Acme", "total_cents": -500, "currency": "EURO"}'
+
+jsonschema.validate(json.loads(payload), transform_schema(Invoice))  # passes
+try:
+    Invoice.model_validate_json(payload)
+except ValidationError as e:
+    print([err["loc"][0] for err in e.errors()])
+# ['total_cents', 'currency']
+```
+
+I ran this with `jsonschema` 4.26.0 against the transformed schema, using a hand-written payload to show that the wire schema and the model disagree, not a captured model response. The point stands without a live call: whatever a provider strips or ignores becomes your validation code's job. Business rules the schema language cannot express (a total that must equal the sum of line items, an end date after a start date) were never in the grammar's reach on any provider.
+
+## Costs and cases where strict mode is the wrong tool
+
+Constrained decoding is not free, and the documented costs are specific:
+
+- **Latency on first use.** Claude [compiles a grammar the first time it sees a schema and caches it for 24 hours from last use](https://platform.claude.com/docs/en/build-with-claude/structured-outputs#grammar-compilation-and-caching); changing the schema structure or the tool set invalidates the cache. OpenAI also notes [additional latency on the first request with any schema](https://developers.openai.com/api/docs/guides/structured-outputs).
+- **Complexity ceilings.** Claude returns a 400 ("Schema is too complex for compilation") when the combined schemas are too large, and enforces a 180-second compilation timeout. Its own advice is to [mark only critical tools as strict](https://platform.claude.com/docs/en/build-with-claude/structured-outputs#tips-for-reducing-schema-complexity) and to make parameters required, because "each optional parameter roughly doubles a portion of the grammar's state space."
+- **Prompt cache.** Changing `output_config.format` invalidates the prompt cache for that conversation thread, and Claude receives an extra injected system prompt describing the format, which adds input tokens.
+- **Reasoning fields.** Claude's docs warn that a property asking for the model's step-by-step reasoning can trigger a `reasoning_extraction` refusal; ask for a short explanation instead.
+
+Strict mode is a poor fit for large tool sets with many optional parameters, for schemas that depend on numeric or length bounds on Claude, and for any case where a refusal or truncation must be handled differently from a validation failure. In those cases a plain schema plus validation and a bounded retry is the more predictable design.
+
+## A portable schema, and a three-step rule
+
+A schema that compiles on all three providers uses a narrow core: objects with `additionalProperties: false`, every property listed in `required`, optionality expressed as a `null` union, `enum` for categories, no recursive references, and no `minimum`, `maxLength` or similar keywords. Each of those choices is the intersection of the three tables above. Anything stricter belongs to your own validation layer.
+
+1. **Write the schema for structure only.** Keep it inside the intersection, and keep the number of optional and union-typed parameters low enough to stay under Claude's 24 and 16 limits.
+2. **Validate with the full model.** Parse the response with the Pydantic or Zod model that holds the real constraints, and treat a failure as a normal outcome with a bounded retry.
+3. **Branch on the stop reason before you parse.** Check for `refusal` and `max_tokens` (and the equivalents on your provider) first, then compare enum values case-insensitively, as the Claude docs advise.
+
+Add one test that sends your production schema to each provider you support, and assert on the `strict` flag when you use OpenAI's Responses API. Schema acceptance is the part of this that changes between API versions, so it is the check worth automating.
