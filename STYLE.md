@@ -1,6 +1,6 @@
 # Post style guide
 
-Governs every weekly post the pipeline drafts. See [decision](.scratch/wayfinder/tickets/0006-research-methodology.md).
+Governs every post the pipeline drafts. See [decision](.scratch/wayfinder/tickets/0006-research-methodology.md).
 
 The bar: a senior engineer should finish a post having learned something specific they could not have got from the first page of the official docs, and should find nothing in it they could fault on accuracy or tone.
 
@@ -133,7 +133,7 @@ The blog should read as a body of work, not a pile of standalone posts. Link ear
 
 Every post gets one banner/thumbnail image, shown on the front page and in category/archive listings:
 
-- Generate via Cloudflare Workers AI's `@cf/black-forest-labs/flux-1-schnell` model (`steps: 8`, the model's max, for best quality), superseding the Gemini approach in [ticket 0001](.scratch/wayfinder/tickets/0001-image-gen-model.md) — Google cut free-tier image quota in Dec 2025. Requires `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in the environment. At ~100 neurons per image against a 10,000-neuron/day free allocation (no billing plan required), this is free at one post/week.
+- Generate via Cloudflare Workers AI's `@cf/black-forest-labs/flux-1-schnell` model (`steps: 8`, the model's max, for best quality), superseding the Gemini approach in [ticket 0001](.scratch/wayfinder/tickets/0001-image-gen-model.md) — Google cut free-tier image quota in Dec 2025. Requires `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in the environment. At ~100 neurons per image against a 10,000-neuron/day free allocation (no billing plan required), this is free at one post every three days.
 - The model returns a 1024×1024 JPEG (it rejects `width`/`height` parameters). Compose the prompt so the subject sits in the middle horizontal band, then centre-crop to 16:9 (1024×576) and convert to PNG (e.g. with Pillow).
 - One conceptual editorial illustration per post (not a literal screenshot, not stock-photo-style, no text or lettering in the image), drawn as a vintage newspaper engraving. The site tones every banner to sepia and lays a halftone screen over it, so bright colours, neon glows and dark backgrounds turn into muddy grey; the image has to work in monochrome.
 - Build the prompt from this template, putting the post's concept in `<subject>`:

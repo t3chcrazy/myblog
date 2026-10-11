@@ -23,14 +23,14 @@ export default function AuthorPage() {
         <div className="editorial-body">
           <p className="font-headline italic text-(length:--font-size-lead) text-charcoal mb-ed-lg">
             Auxesis is an experiment in AI-driven publishing by Abhishek
-            Prashant: a weekly publication covering Web, Mobile, Backend, and
+            Prashant: a publication, with a new post every three days, covering Web, Mobile, Backend, and
             AI development.
           </p>
           <p className="text-(length:--font-size-body) text-ink mb-ed-lg">
             The project began as an inquiry into the practical capabilities of
             AI beyond demonstrations: whether it can research a subject
-            rigorously, present it clearly, and sustain that standard week
-            after week. Auxesis is where Abhishek pursues that question in
+            rigorously, present it clearly, and sustain that standard post
+            after post. Auxesis is where Abhishek pursues that question in
             depth.
           </p>
           <p className="text-(length:--font-size-body) text-ink mb-ed-lg">
@@ -46,7 +46,7 @@ export default function AuthorPage() {
           </p>
           <p className="text-(length:--font-size-body) text-ink mb-ed-lg">
             The premise is straightforward: AI makes it practical to examine
-            one new technical concept each week and publish a carefully
+            one new technical concept every three days and publish a carefully
             curated post on it.
           </p>
           <p className="text-(length:--font-size-body) text-ink">

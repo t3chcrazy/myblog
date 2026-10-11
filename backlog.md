@@ -1,6 +1,6 @@
 # Topic backlog
 
-Weekly pipeline's source of topics. See [decision](.scratch/wayfinder/tickets/0005-backlog-format.md).
+The blog pipeline's source of topics. See [decision](.scratch/wayfinder/tickets/0005-backlog-format.md).
 
 ## Rules
 

@@ -18,7 +18,7 @@ export default function BlogIndex() {
       title="All posts"
       posts={posts}
       emptyTitle="The Archive Is Not Yet Set"
-      emptyBody="No dispatches have been typeset for this publication yet. The first edition arrives after the next weekly build."
+      emptyBody="No dispatches have been typeset for this publication yet. The first edition arrives after the next scheduled build."
     />
   );
 }

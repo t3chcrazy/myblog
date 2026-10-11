@@ -2,10 +2,11 @@
 
 **Live:** [abhishekprashant.dev/blog](https://abhishekprashant.dev/blog)
 
-Auxesis is a weekly, AI-powered blog by Abhishek Prashant covering Web,
+Auxesis is an AI-powered blog by Abhishek Prashant, published every three
+days, covering Web,
 Mobile, Backend, and AI development. It's an experiment in building an
 automated personal newsletter — AI makes it practical to research and write
-up one new technical concept every week, and a person stays accountable for
+up one new technical concept every three days, and a person stays accountable for
 what gets published.
 
 Each post starts from a backlog of candidate topics, goes through a

@@ -28,7 +28,7 @@ export default function Home() {
         <div className="mx-auto max-w-[1240px] px-gutter pt-ed-lg pb-ed-xl">
           <EmptyState
             title="Dispatches Pending Typesetting"
-            body="This edition hasn't gone to print yet. Our compositors are gathering dispatches for the upcoming cycle — check back after the next weekly build."
+            body="This edition hasn't gone to print yet. Our compositors are gathering dispatches for the upcoming cycle — check back after the next scheduled build."
           />
         </div>
       </ViewTransition>
@@ -62,7 +62,7 @@ export default function Home() {
             by every page, so the front page names itself here. */}
         <h1 className="text-center label-caps text-accent-ink">
           Front Page Dispatch <span aria-hidden className="hidden tablet:inline">&bull;</span>{" "}
-          <span className="block tablet:inline">This Week&rsquo;s Edition</span>
+          <span className="block tablet:inline">Latest Edition</span>
         </h1>
         <div className="h-px bg-hairline mt-ed-sm mb-ed-lg" />
 

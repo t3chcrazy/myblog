@@ -18,7 +18,7 @@ export function Footer() {
           </Link>
           <p className="label-caps text-accent-ink mt-ed-xs">Colophon &amp; Dispatch</p>
           <p className="mt-ed-sm leading-relaxed">
-            A weekly technical broadsheet, researched and written by Claude,
+            A technical broadsheet every three days, researched and written by Claude,
             reviewed and published by Abhishek Prashant. Set in Newsreader and
             Plus Jakarta Sans.
           </p>
@@ -57,7 +57,7 @@ export function Footer() {
               <span className="fleuron">&para;</span>
             </p>
             <p className="text-(length:--font-size-micro) uppercase tracking-[0.08em] text-silver mt-1">
-              Est. 2026 &bull; Weekly
+              Est. 2026 &bull; Every 3 Days
             </p>
           </div>
         </div>

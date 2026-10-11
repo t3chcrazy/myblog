@@ -1,6 +1,6 @@
 export const SITE_NAME = "Auxesis";
 export const SITE_DESCRIPTION =
-  "A weekly, AI-powered blog by Abhishek Prashant on Web, Mobile, Backend, and AI development.";
+  "An AI-powered blog by Abhishek Prashant on Web, Mobile, Backend, and AI development, with a new post every three days.";
 
 export const AUTHOR_NAME = "Abhishek Prashant";
 // The AI that researches and drafts each post. Credited by name on every

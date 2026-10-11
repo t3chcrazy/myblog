@@ -8,7 +8,7 @@ web
 
 ## Users
 
-Primary: working software engineers across web, mobile, backend, and AI who visit weekly to learn one well-sourced technical concept they can apply.
+Primary: working software engineers across web, mobile, backend, and AI who visit every few days to learn one well-sourced technical concept they can apply.
 
 Secondary: hiring managers and prospective clients arriving from Abhishek Prashant's portfolio (abhishekprashant.dev), who read the blog as evidence of depth and judgment.
 
@@ -16,12 +16,12 @@ Engineers come first; when the two audiences pull in different directions, the e
 
 ## Product Purpose
 
-Auxesis is a weekly, AI-powered technical publication by Abhishek Prashant, live at abhishekprashant.dev/blog. It tests whether AI can research a subject rigorously, present it clearly, and sustain that standard week after week, with a person accountable for everything that publishes.
+Auxesis is an AI-powered technical publication by Abhishek Prashant, with a new post every three days, live at abhishekprashant.dev/blog. It tests whether AI can research a subject rigorously, present it clearly, and sustain that standard post after post, with a person accountable for everything that publishes.
 
 Success means:
 
 - **Trusted accuracy:** readers can rely on each post because claims are sourced to official docs and reputable engineering sources, and a human reviews every post before it goes live.
-- **Steady weekly cadence:** one post per week, reliably, via the pipeline.
+- **Steady cadence:** one post every three days, reliably, via the pipeline.
 - **Career signal:** the publication strengthens Abhishek's profile for freelance and full-time work.
 
 ## Positioning
@@ -30,7 +30,7 @@ An openly AI-researched publication with a human editor of record. Each post is 
 
 ## Operating Context
 
-- A weekly pipeline picks a topic from `backlog.md`, researches it, drafts a Post, and opens a pull request (a Draft). Merging that PR is the act of Publish.
+- A pipeline running every three days picks a topic from `backlog.md`, researches it, drafts a Post, and opens a pull request (a Draft). Merging that PR is the act of Publish.
 - Readers arrive via the portfolio's Blog link, RSS (`/blog/feed.xml`), search engines, and direct links to individual posts.
 - Content is git-tracked MDX in `content/posts/`; terminology (Post, Dek, Category, Tag, Backlog, Draft, Publish) is defined in `CONTEXT.md`.
 
@@ -64,4 +64,4 @@ Binding unless the user changes them:
 1. **Accuracy over volume.** A sourced, reviewed post beats a faster or longer one.
 2. **Show the process.** The AI-plus-human workflow is part of the product, not a footnote.
 3. **Engineers first.** Optimize for someone reading to understand and apply a concept; the portfolio audience is served by that same quality.
-4. **One concept, done well.** Each week covers a single topic in depth rather than a roundup.
+4. **One concept, done well.** Each post covers a single topic in depth rather than a roundup.

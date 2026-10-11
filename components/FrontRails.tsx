@@ -96,7 +96,7 @@ export function EditionIndex({ posts }: { posts: Post[] }) {
           Delivered every Saturday
         </p>
         <p className="text-(length:--font-size-small) opacity-75 mt-ed-sm leading-relaxed">
-          One long-form dispatch a week. Headlines and summaries in the feed, each linking to the full post.
+          One long-form dispatch every three days. Headlines and summaries in the feed, each linking to the full post.
         </p>
         <a
           href="/blog/feed.xml"
@@ -109,8 +109,8 @@ export function EditionIndex({ posts }: { posts: Post[] }) {
       <div className="border border-hairline p-ed-md">
         <p className="label-caps text-accent-ink">Colophon</p>
         <p className="text-(length:--font-size-small) text-charcoal mt-ed-xs leading-relaxed">
-          Set in Newsreader and Plus Jakarta Sans. Researched and written each
-          week by Claude, reviewed and published by Abhishek Prashant; every
+          Set in Newsreader and Plus Jakarta Sans. Researched and written every
+          three days by Claude, reviewed and published by Abhishek Prashant; every
           claim is cited to its source.
         </p>
       </div>

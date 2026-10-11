@@ -44,7 +44,7 @@ export function Masthead() {
       <div className="mx-auto max-w-[1240px] px-gutter pt-ed-md pb-ed-md">
         <div className="grid items-center gap-ed-md desktop:grid-cols-[11rem_1fr_11rem]">
           <div className="ear hidden desktop:block p-ed-sm text-center">
-            <p className="label-caps text-accent-ink">Weekly Edition</p>
+            <p className="label-caps text-accent-ink">Every Third Day</p>
             <p className="font-headline italic text-(length:--font-size-small) text-charcoal mt-1 leading-snug">
               All the code that&rsquo;s fit to print
             </p>
@@ -58,7 +58,7 @@ export function Masthead() {
               Auxesis
             </Link>
             <p className="font-headline italic text-(length:--font-size-lead) text-charcoal mt-ed-sm">
-              A weekly digest of Web, Mobile, Backend &amp; AI engineering
+              A digest of Web, Mobile, Backend &amp; AI engineering, every three days
             </p>
           </div>
 
