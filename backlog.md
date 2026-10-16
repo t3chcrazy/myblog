@@ -15,7 +15,7 @@ The blog pipeline's source of topics. See [decision](.scratch/wayfinder/tickets/
 - [x] React Server Components: what actually runs where
 - [x] Structured outputs and tool calling in modern LLM APIs
 - [x] Edge functions vs. serverless: picking a deploy target for a Next.js app
-- [ ] Mobile app state management in 2026: where Redux lost ground
+- [x] Mobile app state management in 2026: where Redux lost ground
 - [x] Vector databases vs. plain Postgres + pgvector: when to reach for which
 - [ ] What "agentic" actually means in current AI tooling
 - [x] Database connection pooling for serverless backends
