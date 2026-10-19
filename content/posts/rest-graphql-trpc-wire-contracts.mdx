@@ -1,0 +1,112 @@
+---
+title: "REST, GraphQL or tRPC: what each puts on the wire, measured"
+slug: rest-graphql-trpc-wire-contracts
+date: "2026-10-19"
+Category: Backend
+dek: "One user lookup in three styles: tRPC's batched GETs hit a 431 at 30 KB, GraphQL answers a failed query with 200, and only REST gives a cache a stable URL."
+tags: ["api-design", "graphql", "trpc", "performance"]
+appliesTo: "tRPC 11.19.0 (@trpc/openapi 11.19.0-alpha), graphql 17.0.2, graphql-http 1.23.1, GraphQL spec September 2025, Node.js 22"
+banner: "/banners/rest-graphql-trpc-wire-contracts.png"
+bannerAlt: "Engraving of a brass water manifold, one horizontal pipe carrying a cross-handle valve, a small lever fitting and two curved spouts."
+---
+
+REST, GraphQL and tRPC are usually compared on developer experience, but the choice a small team makes is where its HTTP behaviour lives: in the URL, in a persisted query, or in a procedure name plus JSON. That decides how responses are cached, what your dashboards see as an error, and where requests start failing as they grow. Against tRPC 11.19.0, graphql 17.0.2 and a hand-written REST handler on Node.js 22, the same user lookup produced a 304 revalidation, a 200 for a failed query, and a 431 once a batched URL passed about 30 KB. Two recent changes make the choice less binary than older comparisons assume: GraphQL's September 2025 spec edition added `@oneOf`, and tRPC has an alpha OpenAPI generator.
+
+<Primer>
+
+**Assumes you know:** HTTP methods and status codes, JSON APIs, and basic TypeScript.
+
+**Key terms**
+
+- **Wire contract:** what crosses the network for a call: method, URL, headers, body and status code, as opposed to the client code that produces it.
+- **RPC (remote procedure call):** an API shaped as named functions (`user.byId`) rather than resources at URLs (`/users/u1`).
+- **Batching:** combining several calls into one HTTP request. tRPC does this by default for parallel calls; GraphQL does it by putting several fields in one query.
+- **Persisted document:** a GraphQL query stored on the server and requested by ID, so a GET carries a short identifier instead of the query text.
+- **`@oneOf`:** a GraphQL input-object directive that requires exactly one field to be set, which models "either this or that" inputs.
+- **ETag:** a response header holding a version tag; a client sends it back as `If-None-Match` and gets a body-less `304` if nothing changed.
+
+**Read first:** [tRPC's HTTP RPC specification](https://trpc.io/docs/rpc), which defines the request format this post measures.
+
+</Primer>
+
+## Three APIs, three different requests for the same lookup
+
+The test API had one read (user by ID) and one write (create user). Each style was run locally and called with `fetch`, so the numbers below are the bytes on the wire rather than client-library behaviour.
+
+| | Read request | Missing user | Write |
+|---|---|---|---|
+| REST | `GET /users/u1` | `404`, `application/problem+json` | `POST /users` (not built) |
+| tRPC | `GET /user.byId?input={"id":"u1"}` | `404`, JSON error envelope | `POST /user.create` |
+| GraphQL | `GET /?query={ user(id:"u1"){ name } }` | `200`, `{"data":{"user":null}}` | `POST /` with a `query` body |
+
+The tRPC router behind that row is short, and the input schema is the only contract you write:
+
+```ts
+import { initTRPC, TRPCError } from '@trpc/server';
+import { z } from 'zod';
+
+const t = initTRPC.create();
+const users = new Map([['u1', { id: 'u1', name: 'Ada' }]]);
+
+export const appRouter = t.router({
+  user: t.router({
+    byId: t.procedure
+      .input(z.object({ id: z.string() }))
+      .query(({ input }) => {
+        const u = users.get(input.id);
+        if (!u) throw new TRPCError({ code: 'NOT_FOUND', message: 'no such user' });
+        return u;
+      }),
+    // create: t.procedure.input(...).mutation(...), omitted here
+  }),
+});
+export type AppRouter = typeof appRouter;
+```
+
+tRPC's [HTTP RPC specification](https://trpc.io/docs/rpc) maps `.query()` to `GET` with the input JSON-stringified into a query parameter, and `.mutation()` to `POST` with the input as the body. The [GraphQL over HTTP draft](https://graphql.github.io/graphql-over-http/draft/) is looser: a server must support `POST` and "MAY" support `GET`, and `GET` must not execute mutations (status 405 is recommended, and graphql-http 1.23.1 returned it). Only REST gives each entity its own path, and that matters in the next section.
+
+## Caching works on URLs, so the URL has to mean something
+
+[RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html#section-9.2.3) defines caching semantics for GET, HEAD and POST, "although the overwhelming majority of cache implementations only support GET and HEAD." A GraphQL server that takes every operation as a POST therefore gives shared caches nothing to key on. The [GraphQL documentation](https://graphql.org/learn/serving-over-http/) suggests GET for queries to "facilitate HTTP caching or edge caching in a content delivery network (CDN)", and warns that long query strings can exceed URL limits, so the usual remedy is persisted documents, automatic persisted queries or trusted documents. That is infrastructure you build or buy.
+
+The REST handler needed none of it. With `Cache-Control: public, max-age=60` and an ETag, a repeat request with `If-None-Match` returned `304`, and the cache key is the URL, `/users/u1`.
+
+tRPC sits in between. Queries are GET, so the [caching guide](https://trpc.io/docs/server/caching) says "you can use standard HTTP cache headers", and it supplies a `responseMeta` hook for setting them. The catch is batching. The same guide warns that "since batching is enabled by default", you must make sure "there are not any concurrent calls that may include personal data". The cause is visible in the URL. A batch of two parallel calls is one request, `/user.byId,user.byId?batch=1&input={"0":…,"1":…}`, so the cache key depends on which calls a given page happened to make together. The same user lookup issued alone or in a batch lands under different keys, and one response can carry both public and private data under one header. For caching to work, split public queries onto a link that does not batch.
+
+![Where each style puts the cache key and the error status: REST in the URL path and 404, tRPC in a procedure name with a JSON query parameter and 404 or 207, GraphQL in a POST body or persisted document ID and 200.](/diagrams/rest-graphql-trpc-wire-contracts-1.svg)
+
+## Error codes decide whether your dashboards can see failures
+
+A load balancer, API gateway or uptime check reads the status line, not the body. Here the three styles diverge most.
+
+REST returned `404` with an [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457.html#section-3) `application/problem+json` body, a standard shape any HTTP client can parse. tRPC maps its error codes to statuses: `NOT_FOUND` gave `404`, a failed Zod check on a mutation gave `400`, and a `GET` to a mutation gave `405`. A batch with one success and one failure gave `207`, which the [tRPC spec](https://trpc.io/docs/rpc) documents as "Multi-Status". Two details to know: the validation error's `message` is the raw serialized Zod issue list, and `error.data.stack` is included whenever `NODE_ENV` is not `production`, per the [error-handling guide](https://trpc.io/docs/server/error-handling). The guide recommends overriding `isDev` manually if you need deterministic behavior across runtimes.
+
+GraphQL is the outlier. A query for a missing user returned `200` with `data.user` set to `null` and no error at all. A resolver that threw on a non-null root field returned `200` with `"data": null` and an `errors` array, and a query pairing it with a healthy field returned the same, because the null propagated to the root. Only requests that fail validation (an unknown field) returned `400`. The draft spec is aware of the monitoring cost: it notes that "[i]ntermediary servers and services may use the status code to determine the status of the GraphQL-over-HTTP response", which it says is useful in "metrics and observability, API gateways, and more". For results that carry both `data` and `errors`, the draft says a server "SHOULD reply with a 294 status code", a code that, per the draft, is "not yet registered with IANA" and which clients must treat as `200`. graphql-http 1.23.1 does not do this and returned `200`. If you run GraphQL, plan to export error counts from the response body, because the status line will under-report.
+
+## What changed in 2025 and 2026
+
+GraphQL published a new specification edition on [September 8, 2025](https://graphql.org/blog/2025-09-08-september-edition/), "the first edition of the specification since October 2021". The announcement lists OneOf input objects first, as a way to "model mutually exclusive inputs".
+
+```graphql
+input Lookup @oneOf { id: ID  email: String }
+type Query { find(by: Lookup!): User }
+```
+
+Against graphql 17.0.2, `find(by: {email: "a@b.c"})` executed, and `find(by: {id: "u1", email: "a@b.c"})` failed validation with `400` and the message `Within OneOf Input Object type "Lookup", exactly one field must be specified, and the value for that field must be non-null.` The [graphql-js v17 announcement](https://graphql.org/blog/2026-06-15-introducing-graphql-js-v17/) is dated June 15, 2026. Incremental delivery with `@defer` and `@stream` shipped in it but, per the [project's own docs](https://graphql-js.org/docs/defer-stream), "is pending GraphQL specification work", and needs `experimentalExecuteIncrementally()` instead of `execute()`. The September 2025 specification text contains no `@defer` or `@stream`, so treat both directives as experimental.
+
+On the tRPC side, the [`@trpc/openapi` package](https://trpc.io/docs/openapi) generates an OpenAPI 3.1 specification from a router, "no annotations or decorators required", by statically analysing the TypeScript types. It is explicitly alpha: "APIs may change without notice." Run against the router above, it produced two paths, `/user.byId` (GET) and `/user.create` (POST). The read takes one required `input` query parameter whose content type is `application/json`, and responses are wrapped as `{ result: { data } }` with a shared `Error` response. The docs say the spec can be used to "generate a typed API client in any language", and name Hey API as the most tested generator. What a generated client cannot get is resource URLs: the OpenAPI document describes tRPC's wire format, not a REST design, so the caching and URL-length behaviour above still applies. Subscriptions are excluded for now.
+
+## Limits: URL length, the TypeScript coupling, and who the clients are
+
+URL length is the concrete failure. tRPC's `httpBatchLink` has a `maxURLLength` option whose documented default is `Infinity`, so nothing splits a batch for you. On a plain Node.js 22 server, 300 batched `user.byId` calls (a 14,908-character path and query) returned `200`, and 600 calls (29,908 characters) returned `431 Request Header Fields Too Large`. That matches Node's documented default of [16 KiB for HTTP headers](https://nodejs.org/api/cli.html#--max-http-header-size=size). A dashboard page that fans out hundreds of queries is unusual, but a CDN or proxy in front may set a lower limit than Node does, and the GraphQL docs say the same about browsers and CDNs. Set `maxURLLength` below the smallest limit on your path.
+
+The second limit is who can call you. tRPC's [own concepts page](https://trpc.io/docs/concepts) describes it as "designed for TypeScript monorepos". Its end-to-end types depend on the client importing the router's type, which a mobile team in Swift or a partner integration cannot do; the alpha OpenAPI output narrows that gap but does not close it yet. GitHub, which maintains both a REST and a GraphQL API, [frames the trade](https://docs.github.com/en/rest/about-the-rest-api/comparing-githubs-rest-api-and-graphql-api) the same way: GraphQL "returns exactly the data that you request" and its ability "to make fewer requests and fetch less data makes GraphQL appealing to developers of mobile applications", while REST "use[s] standard HTTP verbs and concepts" that many developers already know.
+
+## A decision rule for a small team
+
+- **One TypeScript monorepo, no external callers:** tRPC. Set `maxURLLength`, keep public cacheable reads on a non-batching link, and set `isDev` explicitly.
+- **Third parties, partners or non-TypeScript clients, and you need CDN caching:** REST with an OpenAPI description. Use `application/problem+json` for errors and ETags for revalidation.
+- **Many clients with different data needs, especially mobile:** GraphQL, but budget for persisted documents if you want CDN caching, and count errors from response bodies, since the status line will say `200`.
+- **Mixed:** tRPC for the internal app and `@trpc/openapi` for a typed external SDK, accepting alpha status, or a REST layer written for the external audience.
+
+Before committing, run your busiest page's calls against a local server and read the status codes and URLs your monitoring would see.
