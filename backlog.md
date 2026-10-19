@@ -19,4 +19,4 @@ The blog pipeline's source of topics. See [decision](.scratch/wayfinder/tickets/
 - [x] Vector databases vs. plain Postgres + pgvector: when to reach for which
 - [ ] What "agentic" actually means in current AI tooling
 - [x] Database connection pooling for serverless backends
-- [ ] Designing REST vs. GraphQL vs. tRPC APIs for a small team
+- [x] Designing REST vs. GraphQL vs. tRPC APIs for a small team
