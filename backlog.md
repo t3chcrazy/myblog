@@ -20,3 +20,4 @@ The blog pipeline's source of topics. See [decision](.scratch/wayfinder/tickets/
 - [ ] What "agentic" actually means in current AI tooling
 - [x] Database connection pooling for serverless backends
 - [x] Designing REST vs. GraphQL vs. tRPC APIs for a small team
+- [x] Stateless MCP: where session state goes after the 2026-07-28 spec

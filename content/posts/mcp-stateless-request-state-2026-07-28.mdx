@@ -1,0 +1,132 @@
+---
+title: "Stateless MCP: where session state goes after the 2026-07-28 spec"
+slug: mcp-stateless-request-state-2026-07-28
+date: "2026-10-22"
+Category: AI
+dek: "MCP's 2026-07-28 revision drops sessions and server-initiated requests. State moves into requestState, and a signed one must still be bound to its arguments."
+tags: ["mcp", "tool-calling", "serverless", "llm-apis"]
+appliesTo: "MCP spec 2026-07-28, @modelcontextprotocol/server 2.3.1 (TypeScript)"
+banner: "/banners/mcp-stateless-request-state-2026-07-28.png"
+bannerAlt: "Engraving of a hand holding out a ribbon-tied scroll toward three identical clerks standing in a row behind a counter."
+related: ["serverless-postgres-connection-pooling", "structured-outputs-schema-subsets-llm-apis"]
+---
+
+The 2026-07-28 revision of the Model Context Protocol deletes sessions, the `initialize` handshake and server-initiated requests, so an MCP server can sit behind a plain round-robin load balancer. The state those features carried does not vanish. It moves into tool arguments, server-minted handles and a `requestState` string that the client holds between calls. The spec calls that string attacker-controlled input, and the practical question for a server author is what to bind it to. In a test against the TypeScript SDK 2.3.1, a signed `requestState` that recorded only "a confirmation was asked" let a "yes" given for one cache authorize wiping a different one. This post walks through what was removed, how the replacement works, and the binding that closes that gap.
+
+<Primer>
+
+**Assumes you know:** how an MCP server exposes tools over HTTP, and what a load balancer in front of several server instances does.
+
+**Key terms**
+
+- **Session:** in MCP 2025-11-25, an optional server-assigned identifier (the `MCP-Session-Id` header) tying later requests to state created during `initialize`.
+- **Elicitation:** a server asking the user for input mid-call, for example "Wipe this cache?". Sampling (asking the client's model for a completion) and roots (asking for the client's directories) follow the same pattern.
+- **MRTR (multi round-trip requests):** the 2026-07-28 replacement. Instead of sending its own request, the server finishes the call early with an `input_required` result, and the client retries the call with the answers attached.
+- **`requestState`:** an opaque string the server puts in an `input_required` result and the client must echo back unchanged on the retry.
+- **HMAC:** a keyed hash. Signing `requestState` with one lets a server detect tampering, but it does not hide the contents.
+
+**The story so far:** under 2025-11-25 a server could keep a session and push requests to the client on an open SSE stream. That made scale-out depend on sticky routing or a shared store.
+
+**Read first:** [Serverless Postgres connections: what each pooling layer protects](/serverless-postgres-connection-pooling) covers why per-request instances change where long-lived resources live, and the [MCP 2026-07-28 changelog](https://modelcontextprotocol.io/specification/latest/changelog) lists every change.
+
+</Primer>
+
+## The revision removes four things that pinned a client to one instance
+
+The [key changes](https://modelcontextprotocol.io/specification/latest/changelog) between 2025-11-25 and 2026-07-28 that matter for deployment are these:
+
+| Capability | 2025-11-25 | 2026-07-28 |
+|---|---|---|
+| Session identity | Server may assign `MCP-Session-Id` at initialize | Removed; list endpoints no longer vary per connection |
+| Handshake | `initialize` / `initialized` | Removed; protocol version and client capabilities travel in each request's `_meta` |
+| Server-to-client channel | HTTP GET stream; server may send requests on SSE | GET answered with 405; server may not send independent requests |
+| Stream recovery | Resumable via `Last-Event-ID` | Not supported; a broken stream loses the in-flight request |
+
+The old behaviour was optional on paper: the [2025-11-25 transport spec](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports#session-management) says a server "MAY assign a session ID". The cost showed up once a tool needed to ask the user something. [SEP-2322](https://modelcontextprotocol.io/seps/2322-MRTR), the proposal behind MRTR, states that the answer had to reach the instance holding the original call, which required either a shared storage layer (which it calls "extremely expensive" and a potential single point of failure) or cookie-based sticky routing that "breaks normal load balancing models."
+
+The new revision makes each request self-describing. The [Streamable HTTP page](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http#request-metadata) also requires `Mcp-Method` and `Mcp-Name` headers that mirror the body, so gateways can route without parsing JSON, and a mismatch is rejected with HTTP 400 and error `-32020`. I ran the SDK's handler to confirm the shape (Node 22, `@modelcontextprotocol/server` 2.3.1): `server/discover` returned `supportedVersions: ["2026-07-28"]`, no response carried an `mcp-session-id` header, and a request whose `Mcp-Name` header disagreed with `params.name` came back as `400` with code `-32020`.
+
+![Two request flows compared. Under 2025-11-25 a tool call holds a stream open on one instance and the user's answer must be routed back to it. Under 2026-07-28 the first call ends with input_required plus requestState, and the retry can land on any instance.](/diagrams/mcp-stateless-request-state-2026-07-28-1.svg)
+
+Operationally, AWS's architecture team draws the consequence directly in its [migration guidance](https://aws.amazon.com/blogs/architecture/mcp-went-stateless-is-your-aws-mcp-server-deployment-well-architected/): "Plain round-robin. Delete the stickiness configuration." Its caveat matters as much: decommission the session infrastructure "only after traffic on the old version reaches zero." Clients built for 2025 still exist. Vercel, which [moved its hosted MCP server to the new revision on July 31, 2026](https://vercel.com/changelog/vercel-mcp-now-supports-the-2026-07-28-mcp-specification), serves both versions from one endpoint. The TypeScript SDK's `createMcpHandler` does the same by default, answering 2025-era requests statelessly from the same server factory.
+
+## Asking the user a question is now a retry with answers attached
+
+Under [multi round-trip requests](https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr), a server may answer `tools/call`, `prompts/get` or `resources/read` with `resultType: "input_required"`, carrying `inputRequests` (elicitation, sampling or roots requests keyed by a server-chosen name) and an optional `requestState`. The client gathers the answers and sends the original request again with `inputResponses` and the echoed `requestState`, under a new JSON-RPC `id`. The spec's own wording is that "the server processing the retry does not need any information beyond what is directly present in the retry request." Servers that implement the old pattern break: "The previous pattern of server-initiated requests is no longer supported."
+
+This is the tool I ran, using the SDK's [input-required API](https://ts.sdk.modelcontextprotocol.io/v2/servers/input-required.html) and its HMAC codec:
+
+```ts
+import { createMcpHandler, McpServer, inputRequired, acceptedContent, createRequestStateCodec } from '@modelcontextprotocol/server';
+import * as z from 'zod/v4';
+
+// Same key on every instance; a per-process random key breaks multi-instance flows.
+const codec = createRequestStateCodec({
+    key: process.env.STATE_KEY, // >= 32 bytes
+    ttlSeconds: 300,
+    bind: ctx => ctx.mcpReq.method
+});
+
+export const handler = createMcpHandler(() => {
+    const server = new McpServer({ name: 'ops', version: '1.0.0' }, { requestState: { verify: codec.verify } });
+
+    server.registerTool('wipe-cache', { inputSchema: z.object({ name: z.string() }) }, async ({ name }, ctx) => {
+        const confirm = z.object({ confirm: z.boolean() });
+        const state = ctx.mcpReq.requestState();
+        const answer = acceptedContent(ctx.mcpReq.inputResponses, 'confirm', confirm);
+
+        // The state proves a question was asked for *this* cache, not another one.
+        if (state?.name !== name || answer?.confirm !== true) {
+            return inputRequired({
+                inputRequests: { confirm: inputRequired.elicit({ message: `Wipe ${name}?`, requestedSchema: confirm }) },
+                requestState: await codec.mint({ name }, ctx)
+            });
+        }
+        return { content: [{ type: 'text', text: `wiped ${name}` }] };
+    });
+    return server;
+});
+```
+
+The factory passed to `createMcpHandler` runs once per HTTP request, so the `McpServer` it returns holds nothing between calls. The SDK docs advise that you "create connection pools and caches once at module scope and close over them", which is the same split the [pooling post](/serverless-postgres-connection-pooling) argues for on serverless Postgres. The same docs note that `inputResponses` "holds only the latest round's answers", so a flow with sequential questions has to carry earlier answers forward in `requestState`.
+
+## `requestState` is client-held, so bind it to what the user approved
+
+The [MRTR page](https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr) is explicit that servers "MUST treat `requestState` as an attacker-controlled input" and, if it influences authorization or business logic, "MUST protect its integrity (e.g. HMAC or AEAD)". It adds a SHOULD list for replay: put the authenticated principal, a short expiry and "an identifier for the originating request, e.g. the method name and a digest of its salient parameters" inside the protected payload, and verify each. Then a warning: these measures "do not by themselves guarantee single-use."
+
+The SDK's codec implements the signing and expiry. The codec's docs say "the SDK applies no protection of its own" beyond this helper, and that the codec is "signed, not encrypted": I decoded the base64url body of a minted value and read `{"p":{"name":"sessions"},"exp":…,"b":"…"}` directly. The binding is whatever the `bind` callback returns. The example in the SDK's type definitions combines the method name and client ID. Neither covers the tool's arguments.
+
+My first version of `wipe-cache` minted `{ step: 'asked' }`, bound to the method name only, and checked that field on retry. The signature verified, because the state was authentic. I then replayed the state issued for `sessions` with `arguments: { name: "billing" }` and a "yes" answer, and the server wiped `billing`. The version above, which mints `{ name }` and compares it to the current argument, behaves differently across six probes I ran:
+
+| Probe | Result |
+|---|---|
+| First call, no state | `input_required`, one `confirm` request |
+| Retry with state and "yes" for `sessions` | `wiped sessions` |
+| Same state and "yes", but `name: "billing"` | `input_required` again |
+| State with its last four characters altered | JSON-RPC error `-32602`, "Invalid or expired requestState" |
+| "Yes" with no state | `input_required` again |
+| Identical retry replayed within the TTL | `wiped sessions` a second time |
+
+The last row is the spec's warning in practice. A short TTL and principal binding limit replay, but only server-side bookkeeping, such as a redemption ID checked against a store, makes an operation at-most-once. The [AAIF design guidance on `requestState`](https://aaif.io/blog/designing-requeststate-for-multi-round-trip-requests) (Max Körbächer, August 2026) gives the same rule: "include a nonce or redemption identifier and enforce at-most-once use server-side" for destructive operations.
+
+## What the stateless design costs
+
+Stateless is a property of the protocol, not of your application. AWS's guidance puts it as "stateless describes the protocol, not your application", and the spec's replacement for sessions is to pass [explicit, server-minted handles as ordinary tool arguments](https://modelcontextprotocol.io/specification/latest/changelog). A cart ID or workspace ID is then a bearer value the model can echo into any later call, so authorize it on every use the way you would a REST object ID.
+
+Other costs, each documented:
+
+- **Broken streams lose the call.** With resumability removed, a dropped response stream means the client "MUST re-issue" the request with a new ID, and closing the stream is itself the cancellation signal. Tools that mutate state need to be idempotent, as AWS also advises.
+- **State rides the wire twice.** The AAIF post notes that "every byte in requestState is retained by the client and travels over the wire again," and that "Nothing in the protocol stops a server from returning input_required forever." Keep payloads small and cap the number of rounds.
+- **Deprecations start a clock.** Roots, Sampling and Logging are deprecated under a [lifecycle policy](https://modelcontextprotocol.io/specification/latest/changelog) with a twelve-month minimum window, so none can be removed before mid-2027. The spec suggests tool parameters instead of roots and direct provider APIs instead of sampling. Dynamic Client Registration is also deprecated in favour of Client ID Metadata Documents.
+- **Tool schemas get wider.** The revision loosens `inputSchema` and `outputSchema` to any JSON Schema 2020-12 keywords. A schema an MCP server publishes may therefore use keywords that a model provider's strict mode rejects (see [the provider subsets](/structured-outputs-schema-subsets-llm-apis)), so test published schemas against the models you pair them with.
+- **Legacy clients cannot reach a modern-only server.** The [compatibility matrix](https://modelcontextprotocol.io/specification/2026-07-28/basic/versioning#compatibility-matrix) lists legacy client against modern server as "Fails", so keep the dual-era default until your clients move.
+
+A single-process stdio server behind no load balancer gains little from any of this. The migration is worth scheduling for HTTP servers that run on more than one instance, or on a platform that scales to zero.
+
+## A migration checklist
+
+1. Upgrade to `@modelcontextprotocol/server` 2.x, the SDK's stable line for this revision, and leave legacy serving on so 2025 clients keep working.
+2. Find every map keyed by session ID. Replace each with a handle returned by a `create_*` tool, or with storage keyed by the authenticated principal.
+3. Convert each mid-call question to `inputRequired`, with a codec key shared across instances and a payload that names the exact arguments the answer approves.
+4. Add the probes from the table above as tests: an altered argument, an altered state, and a replay.
+5. Give mutating tools idempotency keys, then retire sticky routing and the session store only after 2025-era traffic has dropped to zero.
