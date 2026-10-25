@@ -1,0 +1,153 @@
+---
+title: "React Native on Android 16: what edgeToEdgeEnabled still controls"
+slug: react-native-android-16-edge-to-edge
+date: "2026-10-25"
+Category: Mobile
+dek: "In a targetSdk 36 app, React Native's edgeToEdgeEnabled flag only decides on Android 14 and below. Android 15 reads a theme attribute; Android 16 forces it on."
+tags: ["react-native", "android", "edge-to-edge", "mobile"]
+appliesTo: "React Native 0.88.0, Android 16 (API 36), Expo SDK 54"
+banner: "/banners/react-native-android-16-edge-to-edge.png"
+bannerAlt: "Engraving of a theatre stage with heavy curtains drawn fully back, a painted backdrop of rolling hills between them and a lone stagehand at the left edge."
+---
+
+Google Play now requires new apps and updates to target Android 16 (API 36), with an extension available until November 1, 2026, and at that target Android 16 devices draw every app edge-to-edge with no opt-out. React Native's `edgeToEdgeEnabled` Gradle property looks like the switch for this, but the 0.88.0 source shows it only decides the outcome on Android 14 and below: Android 15 consults a theme attribute, and Android 16 forces the mode on. The 0.87 React Native docs pages for `Modal`, `KeyboardAvoidingView`, `StatusBar` and `Dimensions` never mention edge-to-edge, so the behaviour that matters is in the source, and keyboard handling changes with it.
+
+<Primer>
+
+**Assumes you know:** a React Native app with an `android/` project, Gradle properties, and the Android manifest.
+
+**Key terms**
+
+- **Edge-to-edge:** the app window spans the whole display and draws behind the status bar and navigation bar, instead of being inset below and above them.
+- **Insets:** the rectangles the system bars, display cutout and keyboard occupy. An edge-to-edge app is responsible for keeping its content out of them.
+- **`targetSdkVersion`:** the Android API level an app declares it was built for. Many platform behaviour changes apply only to apps that target the new level.
+- **Navigation bar scrim:** the translucent background Android draws behind a three-button navigation bar so its icons stay legible.
+
+**The story so far:** Android 15 made edge-to-edge the default for apps targeting API 35, and let them opt out with a theme attribute. React Native 0.81 added the `edgeToEdgeEnabled` property so apps could turn it on for older Android versions too.
+
+**Read first:** Android's [edge-to-edge guide](https://developer.android.com/develop/ui/views/layout/edge-to-edge).
+
+</Primer>
+
+## Play's deadline turns an opt-out into a requirement
+
+Android 15 enforced edge-to-edge for apps targeting API 35, but an app could opt out by setting `windowOptOutEdgeToEdgeEnforcement`. Android's [behaviour-change notes for Android 16](https://developer.android.com/about/versions/16/behavior-changes-16#edge-to-edge) end that: for apps targeting API 36 the attribute "is deprecated and disabled, and your app can't opt-out of going edge-to-edge." The same page adds a detail that matters for testing: on an Android 15 device, an app that targets 36 still honours the opt-out.
+
+The target level is no longer optional. Google Play's [target API requirements](https://support.google.com/googleplay/android-developer/answer/11926878) say that starting August 31, 2026, new apps and updates must target API 36, and that developers can request an extension to November 1, 2026. React Native moved with it: [0.81 made new Android builds default to API 36](https://reactnative.dev/blog/2025/08/12/react-native-0.81#android-16-support), and the 0.88 app template sets `targetSdkVersion = 36` and `compileSdkVersion = 37`. Expo went further. Its [SDK 54 changelog](https://expo.dev/changelog/sdk-54#edge-to-edge-is-now-always-enabled) says edge-to-edge "cannot be disabled" in any SDK 54 Android app.
+
+An app that has shipped a non-edge-to-edge layout therefore changes when its first API 36 build reaches an Android 16 device, whatever its Gradle properties say.
+
+## The Gradle flag decides on Android 14 and below, and nowhere else
+
+The 0.81 release post describes `edgeToEdgeEnabled` as the way to "enable edge-to-edge on all supported Android versions below 16". The 0.88.0 source is more specific. The Gradle plugin [reads the property](https://github.com/facebook/react-native/blob/v0.88.0/packages/gradle-plugin/react-native-gradle-plugin/src/main/kotlin/com/facebook/react/utils/ProjectUtils.kt) (or its scoped alias `react.edgeToEdgeEnabled`) into a `BuildConfig` field, and the [generated entry point](https://github.com/facebook/react-native/blob/v0.88.0/packages/gradle-plugin/react-native-gradle-plugin/src/main/kotlin/com/facebook/react/tasks/GenerateEntryPointTask.kt) calls `setEdgeToEdgeFeatureFlagOn()` when it is true. That sets a process-wide Boolean. Then, in `ReactActivityDelegate.onCreate`, `updateEdgeToEdgeFeatureFlag` runs, in [`WindowUtil.kt`](https://github.com/facebook/react-native/blob/v0.88.0/packages/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/WindowUtil.kt) (verbatim apart from the `// …` cuts):
+
+```kotlin
+internal fun updateEdgeToEdgeFeatureFlag(activity: Activity) {
+  // When the app targets SDK 35+, edge-to-edge may be enforced by the OS even if the
+  // feature flag wasn't explicitly set. In that case, turn the flag on to match.
+  if (AndroidVersion.isAtLeastTargetSdk35(activity)) {
+    if (Build.VERSION.SDK_INT >= AndroidVersion.VERSION_CODE_BAKLAVA) {
+      // The device is running Android 16+ (where edge-to-edge is always enforced)
+      isEdgeToEdgeFeatureFlagOn = true
+    } else {
+      val attributes = intArrayOf(AndroidVersion.ATTR_WINDOW_OPT_OUT_EDGE_TO_EDGE_ENFORCEMENT)
+      val typedArray = activity.theme.obtainStyledAttributes(attributes)
+
+      // The device is running Android 15 with / without opting out
+      isEdgeToEdgeFeatureFlagOn =
+          try {
+            !typedArray.getBoolean(0, false)
+          } finally {
+            typedArray.recycle()
+          }
+    }
+  }
+  // …
+  if (isEdgeToEdgeFeatureFlagOn) {
+    activity.window.enableEdgeToEdge()
+  }
+}
+```
+
+For an app that targets 35 or higher, the Gradle value survives only on devices below Android 15. On Android 15 it is overwritten by the theme attribute, and on Android 16 and above it is overwritten with `true`. The [0.86 release notes](https://reactnative.dev/blog/2026/06/11/react-native-0.86#edge-to-edge-on-android) describe the same situation from the bug-fix side: fixes for edge-to-edge "when it's enforced by the OS but not explicitly enabled via the `edgeToEdgeEnabled` Gradle property".
+
+![A three-column diagram: on Android 14 and below the edgeToEdgeEnabled Gradle property decides; on Android 15 the windowOptOutEdgeToEdgeEnforcement theme attribute decides; on Android 16 and above the OS decides and the Gradle flag has no effect.](/diagrams/react-native-android-16-edge-to-edge-1.svg)
+
+Two consequences follow. An app that sets `edgeToEdgeEnabled=false` gets a different UI on Android 14 than on Android 16, which doubles the layouts to test; the 0.88 template [sets the property to `true`](https://github.com/react-native-community/template/blob/0.88-stable/template/android/gradle.properties), and keeping it true makes every version behave alike. And a theme that still carries the opt-out attribute, whether yours or a library's, makes Android 15 devices behave differently from Android 16 ones, so a test fleet of Android 15 phones can pass a layout that Android 16 users will see broken. The template's own comment adds a limit: "Only works with ReactActivity and should not be used with custom Activity."
+
+## The flag also changes what `Dimensions` and `Modal` report
+
+The same Boolean is read by native code that JavaScript depends on. In [`DeviceInfoModule.kt`](https://github.com/facebook/react-native/blob/v0.88.0/packages/react-native/ReactAndroid/src/main/java/com/facebook/react/modules/deviceinfo/DeviceInfoModule.kt), window metrics are the full bounds when the flag is on. When it is off, the code explains why it subtracts: "WindowMetrics bounds include system bars. When edge-to-edge is not enabled, we subtract them so that window dimensions reflect the usable content area." So `Dimensions.get('window').height` on an edge-to-edge app includes the status and navigation bars. Any layout that sizes a sheet or hero from that number, and was written when it excluded the bars, is now taller than the visible area by the bar heights.
+
+`Modal` follows the flag too. In [`ReactModalHostView.kt`](https://github.com/facebook/react-native/blob/v0.88.0/packages/react-native/ReactAndroid/src/main/java/com/facebook/react/views/modal/ReactModalHostView.kt) both translucency props are read as:
+
+```kotlin
+public var statusBarTranslucent: Boolean = false
+  get() = field || isEdgeToEdgeFeatureFlagOn
+```
+
+Expo's [edge-to-edge post](https://expo.dev/blog/edge-to-edge-display-now-streamlined-for-android) tells developers to set both `statusBarTranslucent` and `navigationBarTranslucent` on every modal. In 0.88.0 that is redundant once the flag is on, though harmless. The modal's dialog window goes edge-to-edge, as Android's [dialog guidance](https://developer.android.com/develop/ui/views/layout/edge-to-edge#dialogs) requires of a full-screen dialog, so its content needs the same inset padding as a screen. The `react-native-safe-area-context` [docs on `SafeAreaProvider`](https://rnsac.appandflow.com/docs/api/safe-area-provider) say that with `react-native-screens` you may need a provider at the root of modals and routes too.
+
+## Insets are now the app's job, and `SafeAreaView` cannot do it
+
+In 0.88.0 React Native's `SafeAreaView` is marked `@deprecated` and is implemented as `Platform.select({ ios: <native component>, default: View })` in [`SafeAreaView.js`](https://github.com/facebook/react-native/blob/v0.88.0/packages/react-native/Libraries/Components/SafeAreaView/SafeAreaView.js). On Android it is a plain `View` that adds no padding. The [0.81 release notes](https://reactnative.dev/blog/2025/08/12/react-native-0.81#safeareaview-deprecation) say the same thing in prose: the component gave "limited, iOS-only support" and "is not compatible with edge-to-edge rendering on Android". The replacement they name is `react-native-safe-area-context`.
+
+Android's [edge-to-edge guide](https://developer.android.com/develop/ui/views/layout/edge-to-edge#handle-overlaps) recommends padding a scrolling list rather than its container, with `clipToPadding` off, so rows scroll behind the bars but the first and last stay reachable. The React Native equivalent is `contentContainerStyle`. This version typechecks against React 19.3.0, React Native 0.88.0 and `react-native-safe-area-context` 5.10.1 (I ran `tsc`, not a device):
+
+```tsx
+import { FlatList, Text } from 'react-native';
+import {
+  SafeAreaProvider,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
+
+function Inbox({ messages }: { messages: string[] }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <FlatList
+      data={messages}
+      keyExtractor={(item) => item}
+      renderItem={({ item }) => <Text>{item}</Text>}
+      contentContainerStyle={{
+        paddingTop: insets.top,
+        paddingBottom: insets.bottom,
+        paddingLeft: insets.left,
+        paddingRight: insets.right,
+      }}
+    />
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <Inbox messages={['first', 'second']} />
+    </SafeAreaProvider>
+  );
+}
+```
+
+Android's [edge-to-edge guide](https://developer.android.com/develop/ui/views/layout/edge-to-edge) also notes that `enableEdgeToEdge()` makes the system bars transparent "except on 3-button navigation mode where the navigation bar gets a translucent scrim", so bottom content that looks fine in gesture mode can sit under a tinted bar in button mode. Test both navigation modes.
+
+## The keyboard breaks first
+
+The 0.88 template's manifest declares `android:windowSoftInputMode="adjustResize"`, and many apps rely on it. Under edge-to-edge it no longer resizes the window. Kirill Zyusko, maintainer of `react-native-keyboard-controller`, [writes on Margelo's blog](https://margelo.com/blog/deep-dive-in-keyboard-handling) that "the system no longer resizes your window when the keyboard appears" and instead the system "hands you the keyboard insets and expects you to react". Treat that as a maintainer's account of Android 15 behaviour, with the caveat that his library is the alternative he recommends.
+
+React Native's response is `KeyboardAvoidingView`. The [0.86 notes](https://reactnative.dev/blog/2026/06/11/react-native-0.86#edge-to-edge-on-android) list a fix for it on Android 15 and above. Its [source](https://github.com/facebook/react-native/blob/v0.88.0/packages/react-native/Libraries/Components/Keyboard/KeyboardAvoidingView.js) shows what it still does on Android: it subscribes to `keyboardDidShow` and `keyboardDidHide`, which the same article says fire "after the keyboard has finished animating", while it "does not subscribe to WindowInsetsAnimationCallback". On that account, a form lifted by `behavior="padding"` moves after the animation instead of following it. Whether that is acceptable is a product call; no source I found measures the delay.
+
+## Limits of this reading, and a migration order
+
+This post is a source reading, not a device test. I did not run an Android 16 emulator, and the behaviour of third-party libraries with their own window handling (maps, camera views, bottom sheets) is outside what I checked. The API 36 bump also carries two further changes that the edge-to-edge work will not catch. Android 16 enables predictive back by default for apps that target 36, and `onBackPressed` is no longer called; Expo's [SDK 54 changelog](https://expo.dev/changelog/sdk-54#predictive-back-gestureavailable-as-opt-in) says it is disabled by default there and planned for SDK 55 or 56, so check your SDK's current setting. On screens at least 600dp wide, [orientation and resizability locks are ignored](https://developer.android.com/about/versions/16/behavior-changes-16#ignore-orientation), with a temporary opt-out that Android says will not apply at API 37.
+
+For an app that must ship before the extension ends, this order covers the edge-to-edge part:
+
+1. Search for the opt-out in your themes and in `node_modules` Android resources, and remove it:
+
+   ```bash
+   grep -rn "windowOptOutEdgeToEdgeEnforcement" android/ node_modules/*/android/src 2>/dev/null
+   ```
+
+2. Set `edgeToEdgeEnabled=true` in `android/gradle.properties`, so Android 14 matches Android 16.
+3. Replace `SafeAreaView` with `react-native-safe-area-context`, and audit every use of `Dimensions.get('window')`.
+4. Test on an API 36 emulator and an API 34 one, in gesture and three-button navigation, with a text input focused on each form screen.
+5. If you cannot finish, request the extension in Play Console before November 1; the opt-out disappears on Android 16 devices the moment the update targets 36.
