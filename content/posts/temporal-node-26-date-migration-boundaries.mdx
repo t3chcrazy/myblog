@@ -1,0 +1,124 @@
+---
+title: "Temporal in Node 26: what it fixes and where Date still leaks in"
+slug: temporal-node-26-date-migration-boundaries
+date: "2026-10-28"
+Category: Backend
+dek: "Node 26 ships Temporal without a flag, but drivers, JSON and structuredClone still speak Date. A tested map of where the migration boundary sits."
+tags: ["nodejs", "temporal", "postgres", "javascript"]
+appliesTo: "Node.js 26.12.1 (V8 14.6), node-postgres 8.23.1, PostgreSQL 16.15"
+banner: "/banners/temporal-node-26-date-migration-boundaries.png"
+bannerAlt: "Engraving of an open pocket watch with Roman numerals around a cut-away showing interlocking gears."
+---
+
+Node.js 26 enables `Temporal` by default, and the release is scheduled to enter long-term support today, so the replacement for `Date` is now available on the server without a flag or a polyfill. What the release notes do not say is that adopting it is a boundary problem, not a find-and-replace one. Temporal removes three specific `Date` failure modes inside your own code, but the database driver, `structuredClone` and `Intl.DateTimeFormat` each have an edge where a Temporal value is refused or a `Date` still arrives. The practical migration is to convert at those edges and keep Temporal values in between.
+
+<Primer>
+
+**Assumes you know:** JavaScript's `Date`, ISO 8601 timestamps, and the difference between a UTC instant and a wall-clock time.
+
+**Key terms**
+
+- **Temporal:** a built-in date and time API (a global namespace with several classes) that replaces `Date`. Objects are immutable and each class models one concept.
+- **`Temporal.Instant`:** one exact moment, stored as nanoseconds since the Unix epoch, with no time zone attached.
+- **`Temporal.PlainDate`:** a calendar date with no time and no time zone, such as a birthday or an invoice date.
+- **`Temporal.ZonedDateTime`:** an instant plus a time zone and calendar, which lets it do daylight-saving-aware arithmetic.
+- **Type parser:** in node-postgres, a function that turns the text Postgres sends for a column type into a JavaScript value.
+
+**The story so far:** `Date` is a mutable wrapper around a millisecond timestamp that is interpreted in the process's local time zone. Libraries such as Moment, date-fns and Luxon grew up to cover its gaps.
+
+**Read first:** MDN's [Temporal reference](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_objects/Temporal).
+
+</Primer>
+
+## Node 26 has it, Node 22 and 24 do not, and Safari is still pending
+
+The [Node.js 26.0.0 release notes](https://nodejs.org/en/blog/release/v26.0.0) say "The Temporal API is now enabled by default in Node.js 26" (contributed by Richard Lau in [#61806](https://github.com/nodejs/node/pull/61806)), on V8 14.6. The [Node.js release schedule](https://raw.githubusercontent.com/nodejs/Release/main/schedule.json) lists v26 with `lts: 2026-10-28`, and v22 and v24 as already in maintenance. Neither older line exposes the global: on Node 22.22.0 and 24.22.1, `typeof Temporal` is `"undefined"`. Node 26.12.1 returns `"object"`.
+
+So the first decision is about runtimes. A service that must run on Node 22 or 24 until their [end dates](https://raw.githubusercontent.com/nodejs/Release/main/schedule.json) (2027-04-30 and 2028-04-30) needs a polyfill, and the [proposal repository](https://github.com/tc39/proposal-temporal) distinguishes the options: `temporal-polyfill` is listed as a stable release, `@js-temporal/polyfill` as an alpha, and the repo's own polyfill carries the warning "DO NOT use this polyfill in your own projects!"
+
+Browsers matter if the same code is shared. The proposal repository lists Firefox 139 and Chrome 144 as shipped. Safari has not: a [web-platform-tests interop issue](https://github.com/web-platform-tests/interop/issues/1381) records initial support in Safari Technology Preview 249 in August 2026 and no stable release yet. MDN still marks the feature "Limited availability" and not Baseline.
+
+One more build-time fact: the [pull request that enabled it](https://github.com/nodejs/node/pull/61806) says Temporal "requires `cargo` and `rustc`, which are new build toolchain requirements", with a `--v8-disable-temporal-support` option. That affects people compiling Node themselves, not people installing it.
+
+## Three Date failure modes that disappear inside your own code
+
+All outputs below are from Node 26.12.1.
+
+**Month arithmetic.** `Date` carries overflow forward silently; `PlainDate` clamps by default and can be told to throw.
+
+```js
+const d = new Date(2026, 0, 31); d.setMonth(1);
+d.toDateString();                                   // "Tue Mar 03 2026"
+
+Temporal.PlainDate.from('2026-01-31').add({ months: 1 });
+// 2026-02-28 (overflow: 'constrain' is the default)
+Temporal.PlainDate.from('2026-01-31').add({ months: 1 }, { overflow: 'reject' });
+// RangeError
+```
+
+MDN's [`PlainDate.add` page](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_objects/Temporal/PlainDate/add) documents the clamping and warns that the clamped date is what gets carried forward, so `{ months: 1, days: 31 }` and "31 days, then a month" give different answers.
+
+**Daylight saving.** A day is not always 24 hours, and Temporal makes you say which one you mean.
+
+```js
+const z = Temporal.ZonedDateTime.from('2026-03-07T12:00[America/New_York]');
+z.add({ days: 1 }).toString();   // 2026-03-08T12:00:00-04:00[America/New_York]
+z.add({ hours: 24 }).toString(); // 2026-03-08T13:00:00-04:00[America/New_York]
+Temporal.ZonedDateTime.from('2026-03-08T00:00[America/New_York]').hoursInDay; // 23
+```
+
+Calendar days keep the wall-clock time; hours count elapsed time. For a local time that falls in a gap or overlap, the default `disambiguation: 'compatible'` matches `Date`, and `'reject'` throws, per [MDN's `ZonedDateTime` page](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_objects/Temporal/ZonedDateTime).
+
+**Silent coercion.** MDN's [`Date` page](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_objects/Date) states the parsing trap: "date-only forms are interpreted as a UTC time and date-time forms are interpreted as a local time." Temporal has no such split, because `PlainDate` and `Instant` are different types. It also blocks implicit comparison: Temporal objects' `valueOf()` throws, so `a < b` is a `TypeError` and you call `Temporal.Instant.compare()` instead, as [MDN's `Instant.valueOf` page](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_objects/Temporal/Instant/valueOf) explains. `Instant` also keeps nanoseconds; `new Date()` truncates to milliseconds.
+
+## The edges where a Temporal value is refused
+
+Four boundaries showed up in testing, all by design in the spec rather than bugs.
+
+- **`structuredClone` and `postMessage`.** `structuredClone(zdt)` throws `DataCloneError: [object Temporal.ZonedDateTime] could not be cloned` on Node 26.12.1, so worker-thread messages need strings or epoch values.
+- **`JSON.stringify`.** It works: `Instant` serializes as `"2026-10-28T12:00:00Z"` and `PlainDate` as `"2026-10-28"`. `JSON.parse` has no way back, so a reviver or a schema layer (Zod, for example) must call `Temporal.Instant.from`.
+- **`Intl.DateTimeFormat#format`.** It accepts `Instant` and `PlainDate`, but a `ZonedDateTime` throws `TypeError: Invalid argument for Temporal`. Use `zdt.toLocaleString(locale, options)`, which reads the zone from the object.
+- **`new Date(zdt)`.** This throws for the same `valueOf` reason. The bridge is `new Date(zdt.epochMilliseconds)` or `legacyDate.toTemporalInstant()`.
+
+## The driver is where Date comes back
+
+The widest leak is the database. The [node-postgres types documentation](https://node-postgres.com/features/types) says `date`, `timestamp` and `timestamptz` columns are parsed "into an instance of a JavaScript `Date` object", that `DATE` and `TIMESTAMP` are converted into the Node process's local time, and that microseconds are truncated. On Node 26 against PostgreSQL 16.15 with node-postgres 8.23.1, a `date` column holding `2026-10-28` came back as:
+
+| Process `TZ` | `row.d.toISOString()` | `.slice(0, 10)` |
+| --- | --- | --- |
+| `America/Los_Angeles` | `2026-10-28T07:00:00.000Z` | `2026-10-28` |
+| `Asia/Kolkata` | `2026-10-27T18:30:00.000Z` | `2026-10-27` |
+
+The same query returns a different calendar date depending on where the server runs. A `timestamptz` of `2026-10-28 09:00:00.123456+05:30` came back as `...03:30:00.123Z`, with the last three digits gone. node-postgres lets you replace the parsers per client; this snippet, run against that database, fixes both:
+
+```js
+import pg from 'pg';
+const { Client, types } = pg;
+
+const client = new Client({
+  // host, user, database …
+  types: {
+    getTypeParser: (oid, format) => {
+      if (oid === types.builtins.TIMESTAMPTZ)
+        return (s) => Temporal.Instant.from(s.replace(' ', 'T').replace(/([+-]\d\d)$/, '$1:00'));
+      if (oid === types.builtins.DATE) return (s) => Temporal.PlainDate.from(s);
+      return types.getTypeParser(oid, format);
+    },
+  },
+});
+// SELECT at, d → at: 2026-10-28T03:30:00.123456Z, d: 2026-10-28, in any TZ
+```
+
+Postgres sends offsets like `+05:30` and `+00` in its text format, and `Temporal.Instant.from` wants `+05:30`, hence the regex. The `types` client option is not shown in the node-postgres pages above; the snippet worked as written on 8.23.1, and the [pg-types README](https://github.com/brianc/node-pg-types) documents the global `setTypeParser` alternative.
+
+Other layers are moving. The Prisma 8 release candidates, per the [8.0.0-rc.6 notes](https://newreleases.io/project/github/prisma/orm/release/v8.0.0-rc.6), make PostgreSQL date columns "read as `Temporal` values or text, never `Date`" and require "a global `Temporal` implementation" wherever one is read. As of the [releases page](https://github.com/prisma/prisma/releases), Prisma 8.0 is still a pre-release and the stable line is 7.10.1, which does not mention Temporal.
+
+## Trade-offs and when to wait
+
+Temporal is a Stage 4 proposal, but the [TC39 finished-proposals list](https://github.com/tc39/proposals/blob/main/finished-proposals.md) shows its ECMAScript edition as 2027. Some secondary sources say ES2026; this post follows the TC39 list. Engines ship it either way.
+
+Costs are real. Every driver, ORM, validator and serializer in the path needs a Temporal-aware conversion, and most do not have one yet. Mixed codebases carry two date models, and a `ZonedDateTime` cannot be compared with `<`. If a service runs on Node 22 or 24, you add a polyfill dependency to a codebase that previously needed none. For simple UTC timestamp handling, `Date` plus `toISOString()` remains adequate.
+
+## A decision rule for existing services
+
+Adopt Temporal now where the arithmetic is the bug: billing periods, recurring schedules, anything that adds months or days across a time zone. Convert at the edges: parse database and JSON input into `Instant` or `PlainDate` on the way in, and serialize to strings or epoch values on the way out. Set explicit type parsers for `date` and `timestamptz` columns before the first Temporal value is derived from them, because `date` through the default parser is already wrong in some time zones. Keep Node 22 and 24 services on `Date` or `temporal-polyfill` until they move, and do not share Temporal code with browser bundles until Safari ships it.
