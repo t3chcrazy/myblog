@@ -1,0 +1,115 @@
+---
+title: "Node.js goes annual: why `latest` in CI now means an alpha"
+slug: nodejs-annual-releases-alpha-in-ci
+date: "2026-11-01"
+Category: Backend
+dek: "Node 27's alpha is already the newest entry in nodejs.org's index. setup-node's latest resolves to it, and npm, pnpm and Yarn 1 disagree on engines."
+tags: ["nodejs", "ci", "release-management", "javascript"]
+appliesTo: "Node.js 26.13.0 (LTS), 27.0.0-alpha.0.0.0; setup-node v4-v6; npm 12.1.0, pnpm 10.34.9, Yarn 1.22.22"
+banner: "/banners/nodejs-annual-releases-alpha-in-ci.png"
+bannerAlt: "Engraving of a railway signalman in a peaked cap standing on a curving track beside a small hut and tall signal masts."
+related: ["temporal-node-26-date-migration-boundaries"]
+---
+
+Node.js is moving from two major releases a year to one, starting with 27, and the calendar is easy to find. The consequence that the schedule page does not spell out is already live: the first Node 27 alpha, `v27.0.0-alpha.0.0.0`, was published on 2026-10-29 and sits at the top of the same `index.json` that version managers and CI actions read. In that index `latest` no longer means "the newest stable release", and the tools that resolve it handle a pre-release in different ways. Pinning to a line that has an LTS date, and testing the alpha on purpose in a separate job, replaces the old habit of reading the parity of the major number.
+
+<Primer>
+
+**Assumes you know:** semantic versioning, `.nvmrc` or `engines` pinning, and a CI matrix with `actions/setup-node`.
+
+**Key terms**
+
+- **LTS (Long Term Support):** a release line that receives fixes and security patches for a fixed period and is the one the project recommends for production.
+- **Current:** the phase in which a new major line is stable enough to use but has not yet been promoted to LTS.
+- **Alpha:** the new pre-release phase for Node 27 and later. It tracks the `main` branch, may include breaking changes, and its API and ABI can change between builds.
+- **ABI (`NODE_MODULE_VERSION`):** the binary interface that compiled native add-ons are built against; a new value means add-ons must be rebuilt.
+- **`engines`:** the `package.json` field that declares which Node versions a package supports.
+
+**The story so far:** until Node 26, a new major shipped every April (even, promoted to LTS) and October (odd, never promoted). Teams used the parity of the major number to decide what to run in production.
+
+**Read first:** [Temporal in Node 26: what it fixes and where Date still leaks in](/temporal-node-26-date-migration-boundaries), for what changed in the runtime itself, and the [Node.js release schedule announcement](https://nodejs.org/en/blog/announcements/evolving-the-nodejs-release-schedule).
+
+</Primer>
+
+## One line a year, every line becomes LTS
+
+The [announcement](https://nodejs.org/en/blog/announcements/evolving-the-nodejs-release-schedule) (last updated 2026-03-10) states the change in one sentence: "Starting with 27.x, Node.js will move from two major releases per year to one." Odd and even numbering goes away and every line is promoted to LTS. The [Release working group's README](https://github.com/nodejs/Release/blob/main/README.md) gives the mechanics: a new line is branched from `main` each October and receives Alpha builds for six months, ships its first semver-major (for example `27.0.0`) in April, stays Current for six months, then enters LTS in October. LTS lasts 30 months, "for a total of 36 months from its first Current release to End-of-Life". From 27 onward there is no separate Maintenance phase; the README marks it "release lines up to Node.js 26 only".
+
+The dates, from the [`schedule.json`](https://github.com/nodejs/Release/blob/main/schedule.json) in that repository (fetched 2026-11-01, and the README adds "Dates are subject to change"):
+
+| Line | Current from | LTS from | End of life |
+| --- | --- | --- | --- |
+| 22 | 2024-04-24 | 2024-10-29 | 2027-04-30 |
+| 24 | 2025-05-06 | 2025-10-28 | 2028-04-30 |
+| 26 | 2026-05-05 | 2026-10-28 | 2029-04-30 |
+| 27 | 2027-04-22 (alpha from 2026-10-28) | 2027-10-20 | 2030-04-30 |
+
+![Timeline from 2026 to 2030 of Node.js lines 22, 24, 26 and 27, with the 2026-11-01 date marked: 22 and 24 in Maintenance, 26 in Active LTS, and 27 in Alpha, then Current from April 2027 and LTS for the whole 30 months from October 2027.](/diagrams/nodejs-annual-releases-alpha-in-ci-1.svg)
+
+Counting supported lines from that file gives a concrete before and after. On 2025-11-01 four lines were supported (20, 22, 24 and the odd-numbered 25). On 2026-11-01 it is three (22, 24, 26), and on 2027-11-01 it will be three again (24, 26, 27). What disappears is the odd-numbered line, about which [the announcement](https://nodejs.org/en/blog/announcements/evolving-the-nodejs-release-schedule) says "Odd-numbered releases see minimal adoption." Node 24 moved to Maintenance on 2026-10-20, so the practical upgrade window for a service on 24 runs until 2028-04-30, and Node 26 is the line to target now.
+
+## The alpha is already the first entry in the index
+
+The announcement asks for Alpha builds in CI: "Please integrate Alpha releases to your CI as early as possible; if you only test on LTS releases, you will not be able to report bugs before they affect your users." The release team has already done its part. On 2026-11-01, the first entry of [`nodejs.org/dist/index.json`](https://nodejs.org/dist/index.json) was:
+
+```json
+{ "version": "v27.0.0-alpha.0.0.0", "date": "2026-10-29", "lts": false,
+  "npm": "12.1.0", "v8": "15.6.75.25", "openssl": "4.1.0", "modules": "153" }
+```
+
+The entry for v26.13.0, published a day earlier, has `"modules": "147"`, so native add-ons built for 26 will not load on 27. I downloaded the Linux x64 build and it runs; `process.version` returns `v27.0.0-alpha.0.0.0` and `process.versions.modules` returns `153`.
+
+Other entry points are more conservative. `https://nodejs.org/dist/latest/` still serves 26.13.0, and `latest-v27.x` returns "File not found". On Docker Hub, the `latest`, `current`, `lts` and `26` tags of the official `node` image shared one image digest (`sha256:6d2c7d5d074b…`, last updated 2026-10-28), and a tag search for "alpha" returned nothing. nvm's `master` branch classifies versions matching `-alpha.N.N.N` into an `alpha` category and, per its source, selects "every category but alpha" unless `--only` or `$NVM_ONLY` says otherwise (I read this code but did not run it).
+
+`actions/setup-node` is the exception that matters most. Its README says `current`, `latest` and `node` "always resolve to the latest [dist version](https://nodejs.org/dist/index.json)". The source for [v4, v5, v6 and `main`](https://github.com/actions/setup-node/blob/main/src/distributions/base-distribution.ts) filters the index to builds that include the runner's platform file, sorts with `semver.rcompare`, and for those three aliases returns `versions[0]`. Running that same filter and sort over the live index:
+
+```js
+// setup-node's filterVersions + "latest" branch, on the live index (semver 7.8.5)
+const semver = require('semver');
+const idx = require('./release.json');             // curl https://nodejs.org/dist/index.json
+const pick = file => idx.filter(e => e.files.includes(file))
+                        .map(e => e.version).sort(semver.rcompare)[0];
+console.log(pick('linux-x64'), pick('osx-arm64-tar'), pick('win-x64-zip'));
+// v27.0.0-alpha.0.0.0 v27.0.0-alpha.0.0.0 v27.0.0-alpha.0.0.0
+```
+
+I could not run the hosted action itself, so this is a simulation of its code, not a captured workflow log. If the simulation is right, any workflow with `node-version: latest` (or `node`, or `current`) now installs a build that the Node.js Release README says is "not for production use", and does so on the next run without any change to the repository. `lts/*` does not: setup-node resolves LTS aliases from the [`actions/node-versions`](https://github.com/actions/node-versions) manifest, not from the index. Range specs also stay on stable lines, because semver excludes pre-releases from ranges. In the simulation, `*` and `>=26` select 26.13.0, while `27` and `27.x` match nothing.
+
+## Engines checks disagree about whether a pre-release is in range
+
+A pre-release only passes a range check if the range says so. The [node-semver README](https://github.com/npm/node-semver#prerelease-tags) states the rule: a version with a prerelease tag "will only be allowed to satisfy comparator sets if at least one comparator with the same `[major, minor, patch]` tuple also has a prerelease tag", unless the caller sets `includePrerelease`. The package managers differ on whether they set it. With the alpha installed as the running Node, an `engines.node` of `">=24"` produced:
+
+| Check | Result |
+| --- | --- |
+| `semver.satisfies(process.version, '>=24')` (semver 7.8.5) | `false` |
+| `npm install --engine-strict` (npm 12.1.0) | passes |
+| `pnpm install --config.engine-strict=true` (pnpm 10.34.9) | passes |
+| `yarn install` (Yarn Classic 1.22.22) | `error p@1.0.0: The engine "node" is incompatible with this module. Expected version ">=24". Got "27.0.0-alpha.0.0.0"` |
+
+npm's behaviour follows from its source: [`checkEngine` in npm-install-checks](https://github.com/npm/npm-install-checks/blob/main/lib/index.js) builds `const opt = { includePrerelease: true }` and passes it to `semver.satisfies`. A bounded range such as `"^26"` correctly failed in all three package managers, so the difference only affects open-ended ranges, which are the common ones. Any home-grown startup guard that calls `semver.satisfies(process.version, pkg.engines.node)` without the option will reject the alpha too.
+
+Changing the field to `">=24 || >=27.0.0-0"` passed under `semver.satisfies`, npm and Yarn 1. I did not test Yarn Berry or Bun.
+
+## What the new cadence costs
+
+The change was contested. In the [original proposal](https://github.com/nodejs/Release/issues/1113) (opened 2025-07-14, closed 2026-03-10), Rafael Gonzaga wrote that the "frequent cadence has increasingly strained project maintainers", and the proposal also shortened LTS from 30 months to 24. The adopted schedule kept 30 months. In September 2025 a commenter, Flarna, wrote that they saw "no added value of ~monthly majors or alphas compared to a nightly builds chosen at same frequency". That thread predates the final design, so it does not settle whether CI teams will find the alpha line more useful than the nightly feed. [InfoQ's report](https://infoq.com/news/2026/06/nodejs-release-changes) quotes a user on the other side of the trade: "If we only get new LTS every 2 years, I'll go nuts waiting for features."
+
+Three limits apply to the advice here. The alpha channel permits semver-major changes between builds, so a green run on `alpha.0.0.0` says little about the next one; the README says API and ABI "may change between releases". The nightly feed has already moved on to `v28.0.0-nightly…` as `main` advances, so the alpha is a snapshot of a branch, not a stream. And every date above is marked subject to change by its own source.
+
+## Pin lines with an LTS date; test the alpha as its own job
+
+For production images and the default CI matrix, pin to a line that has an LTS date: `node:26` or `lts/*` today, and a bounded `engines` range such as `^24 || ^26`. Treat `latest`, `current` and `node` as unsafe in `setup-node` for anything that must stay green, since they now follow the index rather than a stable release. Add one non-blocking job for the alpha with an explicit range that keeps working after 27.0.0 ships in April 2027:
+
+```yaml
+alpha:
+  runs-on: ubuntu-latest
+  continue-on-error: true
+  steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v6
+      with:
+        node-version: '>=27.0.0-0'   # alpha now, 27.x stable from April 2027
+    - run: npm ci && npm test
+```
+
+In the simulation above `>=27.0.0-0` resolves to the alpha, and keeps resolving to the highest 27-or-later build afterwards. Open-ended `engines` ranges get an `|| >=27.0.0-0` clause if any consumer runs Yarn 1 or a semver-based guard. The team that owns native add-ons should start the ABI rebuild now: `modules` went from 147 to 153 between the 26 LTS and the first 27 alpha.
