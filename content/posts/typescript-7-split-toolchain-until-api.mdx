@@ -1,0 +1,111 @@
+---
+title: "TypeScript 7 in practice: a split toolchain until the 7.1 API"
+slug: typescript-7-split-toolchain-until-api
+date: "2026-11-04"
+Category: Web
+dek: "TypeScript 7.0 is the Go compiler and ships no API, so typescript-eslint refuses to install beside it. A tested setup runs tsc 7 in CI and keeps 6.0 for tools."
+tags: ["typescript", "tooling", "ci", "eslint"]
+appliesTo: "TypeScript 7.0.2 and 7.1.0-beta, @typescript/typescript6 6.0.x, typescript-eslint 8.72.1, ESLint 9"
+banner: "/banners/typescript-7-split-toolchain-until-api.png"
+bannerAlt: "Engraving of two railway tracks curving apart across an open plain, with a single signal post standing between them."
+---
+
+TypeScript 7.0, released on 2026-07-08, is the Go port of the compiler, and the coverage has centred on speed. The part that decides how a migration goes is what 7.0 leaves out: it ships without a programmatic API, and typescript-eslint, which calls that API for every typed lint rule, declares a peer range that stops below 6.1.0. Installing the two together fails at `npm install`. The working arrangement for the next few months is a split toolchain: `tsc` 7 for type-checking in CI and editors, TypeScript 6.0 kept installed for every tool that does `import ts from "typescript"`, until a 7.1 API and tool releases built on it arrive.
+
+<Primer>
+
+**Assumes you know:** `tsconfig.json`, npm dependency resolution (peer dependencies, aliases), and what a typed lint rule is.
+
+**Key terms**
+
+- **Corsa / tsgo:** the code names of the Go port of the TypeScript compiler. From 7.0 it ships as the ordinary `typescript` package and `tsc` command.
+- **Strada:** the code name of the original JavaScript implementation, last released as TypeScript 6.0.
+- **Compiler API:** the JavaScript surface of the `typescript` package (`ts.createProgram`, the AST types) that linters, codegen scripts and editor plugins call.
+- **Typed linting:** typescript-eslint rules such as `no-floating-promises` that need type information, so they build a TypeScript program behind ESLint.
+- **Peer dependency:** a version range a package declares for a library the host project must supply itself; npm refuses a conflicting install.
+
+**The story so far:** TypeScript 6.0 deprecated a batch of options and changed several defaults to prepare for 7.0. The team says 6.0 is intended to be the [last release based on the JavaScript codebase](https://devblogs.microsoft.com/typescript/announcing-typescript-6-0/).
+
+**Read first:** the [Announcing TypeScript 7.0](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/) post.
+
+</Primer>
+
+## The compiler is 7, the API is still 6
+
+The headline numbers come from Microsoft's own benchmarks. With the default of four type-checker workers, a full build of the VS Code codebase drops from [125.7 s on TypeScript 6 to 10.6 s on 7](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/), which the post puts at 11.9x. Prisma measured its own console monorepo and [saw about 74 s fall to about 24 s](https://www.prisma.io/blog/typescript-7-native-compiler-faster-type-checking) (TypeScript 5.8.2 to 7.0.2). Prisma's explanation of the smaller factor: only part of its CI time was ever spent in `tsc`.
+
+The same 7.0 announcement states plainly that "it does not ship with an API" and that the team expects 7.1 to introduce a new, different one. Until then it offers `@typescript/typescript6`, a compatibility package that provides a `tsc6` executable and re-exports the 6.0 API. The 7.1 beta (2026-10-20) shows what is coming: entry points such as `typescript/sync` and `typescript/async`, programs and API objects that must be disposed, and no `tsconfig.json` discovery, so callers pass files and options explicitly. [The beta post](https://devblogs.microsoft.com/typescript/announcing-typescript-7-1-beta/) does not say the API is stable.
+
+## Why typescript-eslint cannot follow yet
+
+The [typescript-eslint documentation](https://typescript-eslint.io/users/dependency-versions) gives the supported range as `>=4.8.4 <6.1.0`, and the 8.72.1 package metadata agrees. I confirmed the consequence in a clean directory: `npm i -D typescript@7.0.2 typescript-eslint@8.72.1 eslint@9` stops with `ERESOLVE`, reporting `peer typescript@">=4.8.4 <6.1.0"`.
+
+This is a design constraint, not an oversight. When a user opened a [support request](https://github.com/typescript-eslint/typescript-eslint/issues/12518) on release day, a maintainer closed it, writing that typescript-eslint "isn't compatible with TS 7 at this time, because there is no TS 7 API at this time." The work is tracked in [a long-running issue](https://github.com/typescript-eslint/typescript-eslint/issues/10940), where on 2026-09-29 a maintainer wrote that work on TypeScript 7.1 support was looking more stable. The same comment lowers expectations: the team does not expect typed linting to be significantly faster on TypeScript 7 than on 6. Teams adopting TypeScript 7 for build speed should not budget a lint speedup alongside it.
+
+## Making the two coexist
+
+The 7.0 announcement describes an npm alias for exactly this case. The `package.json` below follows it and was installed and run for this post:
+
+```json
+{
+  "devDependencies": {
+    "typescript": "npm:@typescript/typescript6@6.0.2",
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "typescript-eslint": "8.72.1",
+    "eslint": "^9",
+    "@types/node": "^22"
+  }
+}
+```
+
+The install succeeds, and the results matched what the announcement says:
+
+- `npx tsc` is 7.0.2, because only the native package provides a `tsc` binary; the aliased 6.0 package provides `tsc6`.
+- `import("typescript")` resolves to the 6.0 API (it reports itself as 6.0.3), so typescript-eslint, codegen scripts and bundler plugins keep working.
+- ESLint with `recommendedTypeChecked` and `projectService: true` ran typed rules (`no-floating-promises`) against that 6.0 program.
+
+![Two TypeScript installs in one project: the `tsc` binary runs the 7.0 native compiler, while `import ts from "typescript"` resolves to the aliased 6.0 package used by typescript-eslint.](/diagrams/typescript-7-split-toolchain-until-api-1.svg)
+
+Anything that needs the old API stays on the alias. The 7.0 post says workflows that use Vue, MDX, Astro, Svelte and others "will likely not yet be able to leverage TypeScript 7", so those projects should keep editor tooling on 6.0. Prisma hit the same wall from the script side: code that imported `typescript` had to be moved to `oxc-parser` or pinned to an older release.
+
+## Finding config breakage on 6.0 first
+
+TypeScript 7.0 matches 6.0's checking and CLI behaviour on code that compiles cleanly under 6.0 with `stableTypeOrdering` on and no `ignoreDeprecations` set. The 6.0 flag was [introduced to assist 6.0-to-7.0 migrations](https://devblogs.microsoft.com/typescript/announcing-typescript-6-0/). The practical effect is that the 6.0 compiler is the cheaper place to find problems. I ran one config through both:
+
+```json
+{ "compilerOptions": { "outDir": "dist", "moduleResolution": "node", "baseUrl": "." }, "include": ["src"] }
+```
+
+- 6.0 reports `TS5107` and `TS5101`: the options are deprecated and "will stop functioning in TypeScript 7.0", and `ignoreDeprecations: "6.0"` silences them.
+- 7.0 reports `TS5108` and `TS5102`: the options "have been removed", with a `paths` replacement suggested for `baseUrl`. Prisma made the same change and had to upgrade `vite-tsconfig-paths` to follow it.
+
+The default changes bite the same way. A `tsconfig.json` without `types` produced `TS2591: Cannot find name 'process'` on both versions, because `types` now defaults to `[]`; listing `"types": ["node"]` fixes it. The emit layout also depends on `rootDir`, which defaults to the directory containing the tsconfig, so `src/index.ts` emits to `dist/src/index.js` unless you set `"rootDir": "./src"`. 6.0 and 7.0 agreed on all of these in my runs.
+
+A few differences do show up only on 7. Template-literal inference now keeps Unicode code points whole. With this type, checked under `--strict --target es2022`, the emoji value failed on 6.0 and compiled on 7.0:
+
+```ts
+type HeadTail<S extends string> = S extends `${infer H}${infer T}` ? [H, T] : never;
+export const x: HeadTail<"😀abc"> = ["😀", "abc"];
+```
+
+The porting notes in [CHANGES.md](https://github.com/microsoft/typescript-go/blob/main/CHANGES.md) add that node positions use UTF-8 offsets rather than UTF-16, that declaration emit is rewritten and not meant to match 6.0 byte for byte, and that JavaScript files lose Closure-era JSDoc features such as `@enum`. Prisma also reported stricter typed-array generics and a recursion-limit hit in one deep mapped type, all type-only.
+
+## Editors and the road to 7.1
+
+Editor support follows the same split. For VS Code, the 7.0 post names a dedicated "TypeScript 7" extension (`TypeScriptTeam.native-preview`) that becomes the default once installed, with "Disable TypeScript 7 Language Server" as the way back. The language server speaks LSP, so any LSP-capable editor can use it. The post says the new language server cut failing commands by over 80%, a vendor figure I did not reproduce.
+
+The 7.1 timeline is short. The beta post says a Release Candidate follows "in about a month from now" (the post is dated 2026-10-20), "followed by a final release shortly thereafter." That is the date to plan around: if typescript-eslint ships support in that window, the alias can go. If it does not, the alias is a stable arrangement rather than a stopgap, because the 6.0 package keeps working.
+
+## Limits and sharp edges
+
+- **Parallelism is tunable and mostly invisible.** `--checkers` (default 4), `--builders` and `--singleThreaded` appear in `tsc --all`. The announcement warns that "in rare cases" changing `--checkers` may surface order-dependent results, so keep it fixed across CI and local runs.
+- **Gains shrink inside a pipeline.** Bundling, tests and codegen are untouched by a faster `tsc`.
+- **7.1 is a beta.** Its API has no tsconfig discovery, needs separate file watching, and typescript-eslint does not support beta releases. Do not move linting to it yet.
+- **Content mappers run arbitrary code.** The 7.1 mechanism for Vue and similar formats requires `tsc --runExternalCode`, so it is opt-in by design.
+
+## What to do this quarter
+
+1. Upgrade to 6.0 first and clear every deprecation without `ignoreDeprecations`. Everything that fails there is a 7.0 failure too.
+2. Add the alias block above so `tsc` is 7 and `typescript` stays on the 6.0 API.
+3. Point the `typecheck` script at `tsc`, and keep lint, codegen and framework tooling on the aliased package. Run old and new type-checks side by side for a cycle and compare diagnostics.
+4. Re-check `npm view typescript-eslint peerDependencies` after each release. When the range admits a 7.x version, drop the alias, not before.
