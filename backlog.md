@@ -17,7 +17,7 @@ The blog pipeline's source of topics. See [decision](.scratch/wayfinder/tickets/
 - [x] Edge functions vs. serverless: picking a deploy target for a Next.js app
 - [x] Mobile app state management in 2026: where Redux lost ground
 - [x] Vector databases vs. plain Postgres + pgvector: when to reach for which
-- [ ] What "agentic" actually means in current AI tooling
+- [x] What "agentic" actually means in current AI tooling
 - [x] Database connection pooling for serverless backends
 - [x] Designing REST vs. GraphQL vs. tRPC APIs for a small team
 - [x] Stateless MCP: where session state goes after the 2026-07-28 spec
