@@ -1,0 +1,128 @@
+---
+title: "Agentic loops: three SDKs, three answers to 'when does it stop?'"
+slug: agentic-loops-three-sdks-termination-contracts
+date: "2026-11-10"
+Category: AI
+dek: "Anthropic, OpenAI and Microsoft define an agent the same way. Their SDKs differ on the default turn limit, how a stop is reported and what the caller keeps."
+tags: ["agents", "tool-calling", "llm-apis", "reliability"]
+appliesTo: "OpenAI Agents SDK (Python) 0.24.0, Claude Agent SDK docs (Nov 2026), Microsoft.Extensions.AI 10.10.0"
+banner: "/banners/agentic-loops-three-sdks-termination-contracts.png"
+bannerAlt: "Engraving of a gloved hand gripping the hub of a large wooden mill wheel to slow its turning."
+related: ["mcp-stateless-request-state-2026-07-28", "structured-outputs-schema-subsets-llm-apis"]
+---
+
+"Agentic" now has a stable technical meaning: a model calling tools in a loop and deciding for itself when to stop. What differs between vendors is the contract around that last clause. Run the same runaway loop through the OpenAI Agents SDK, the Claude Agent SDK and Microsoft's function-invocation layer and you get a different default limit, a different kind of failure and a different answer to what the caller keeps. In a test against the OpenAI SDK 0.24.0, a loop stopped at the default limit ran ten tool calls and then raised an exception, so the caller received none of that work. This post compares the three termination contracts and says which settings to choose before an agent goes near production.
+
+<Primer>
+
+**Assumes you know:** how LLM tool calling works (the model returns a tool call, your code runs it, the result goes back to the model).
+
+**Key terms**
+
+- **Turn:** one pass through the loop: a model call and, if it requested tools, the execution of those tools.
+- **Harness:** the scaffolding around the model that runs the loop, executes tools, manages context and enforces limits. Microsoft defines it as "the scaffolding that turns a language model into an agent."
+- **Compaction:** summarising older conversation history so a long loop fits in the context window.
+- **Final output:** the turn where the loop ends and its result is returned to the caller. Each SDK defines it slightly differently.
+
+**The story so far:** in a workflow, the developer's code decides the order of model calls. In an agent, the model decides, so the code can only bound the loop.
+
+**Read first:** [Stateless MCP: where session state goes after the 2026-07-28 spec](/mcp-stateless-request-state-2026-07-28) covers a related loop, the `input_required` retry, where the protocol itself does not stop a server from asking forever.
+
+</Primer>
+
+## The definition converged, so the limits became the design
+
+Anthropic's December 2024 essay [Building effective agents](https://www.anthropic.com/research/building-effective-agents) drew the line that most vendors now use. Workflows are "systems where LLMs and tools are orchestrated through predefined code paths"; agents are "systems where LLMs dynamically direct their own processes and tool usage." Simon Willison [collected 211 definitions](https://simonwillison.net/2025/Sep/18/agents/) in September 2025 and concluded that the field had largely settled on "An LLM agent runs tools in a loop to achieve a goal."
+
+Both definitions put control flow in the model's hands, which means no line of your code says how many iterations will run. Anthropic's essay concedes the consequence in one clause: "it's also common to include stopping conditions (such as a maximum number of iterations) to maintain control." Its [loops guide](https://claude.com/blog/getting-started-with-loops) from June 2026 lists the exit for a goal-based loop as "Goal achieved OR maximum number of turns reached." The second half of that sentence is the part of an agent you write yourself.
+
+## Three loops, three termination contracts
+
+All three SDKs end the loop the same way when things go well: the model answers without requesting a tool. The [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk/agent-loop) says it repeats "until it produces a response with no tool calls." The [OpenAI Agents SDK](https://openai.github.io/openai-agents-python/running_agents/) says the output is final when the model "produces text output with the desired type, and there are no tool calls." They diverge when the model keeps asking for tools.
+
+| | Claude Agent SDK | OpenAI Agents SDK (Python 0.24.0) | Microsoft.Extensions.AI 10.10.0 |
+|---|---|---|---|
+| Default limit | No limit on turns or spend | `max_turns` = 10 | `MaximumIterationsPerRequest` = 40 |
+| At the limit | `ResultMessage` with subtype `error_max_turns`; no `result` field | Raises `MaxTurnsExceeded` | Tools are stripped from the last request; the loop returns normally |
+| Counts the final answer | Yes, "plus one for the final text-only response" | Yes (tested below) | Yes, "it includes the initial request" |
+| Opt-in graceful path | Check `subtype`; resume the session | `error_handlers={"max_turns": ...}` | Default behaviour |
+
+Sources for the table: the Claude [turns and budget](https://code.claude.com/docs/en/agent-sdk/agent-loop#turns-and-budget) section, the OpenAI [`DEFAULT_MAX_TURNS = 10`](https://github.com/openai/openai-agents-python/blob/main/src/agents/run_config.py) constant (read from the installed package) and the Microsoft [`MaximumIterationsPerRequest`](https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.ai.functioninvokingchatclient.maximumiterationsperrequest) reference, updated 16 October 2026. An older localised copy of that reference page states a default of 10; the current page and the [source file](https://source.dot.net/Microsoft.Extensions.AI/ChatCompletion/FunctionInvokingChatClient.cs.html) both say 40, so this post uses 40.
+
+![Three loops hit the same runaway model. The Claude SDK returns a result object with an error subtype, the OpenAI SDK throws an exception, and the Microsoft client makes one final call with no tools and returns normally.](/diagrams/agentic-loops-three-sdks-termination-contracts-1.svg)
+
+The Microsoft design is the most forgiving. When the counter reaches the maximum, the client logs the event and calls `PrepareOptionsForLastIteration`, whose doc comment says "On the last iteration, we won't be processing any function calls, so we should not include AIFunctionDeclaration tools in the request." The model gets one more call, cannot request a tool and has to write something. The [Microsoft Agent Framework harness](https://devblogs.microsoft.com/agent-framework/the-microsoft-agent-framework-harness-is-now-released/), released in July 2026, lists this layer as "Function invocation – the automatic tool-calling loop, with a configurable iteration limit." The post gives no default for the harness itself, so treat 40 as a property of the underlying client.
+
+## OpenAI's default raises, and the work done is lost
+
+The OpenAI loop is documented in three steps: tool calls run and "re-run the loop", a handoff swaps the current agent and re-runs, and "If we exceed the `max_turns` passed, we raise a `MaxTurnsExceeded` exception." The runner docs do not state the default, so I read it from the installed package. I ran a fake `Model` that always requests one tool, against `openai-agents` 0.24.0 on Python 3.11:
+
+| Scenario | Result |
+|---|---|
+| Default settings, model never finishes | `MaxTurnsExceeded`; 10 model calls and 10 tool executions had already happened |
+| `max_turns=4`, model answers on its fourth call | Returns `"done"` |
+| `max_turns=3`, same model | `MaxTurnsExceeded` after 3 model calls and 3 tool executions |
+
+Two consequences follow. A limit of N allows N-1 tool rounds before the answer, because the final response occupies a turn. And any side effects of the last tool call have already happened when the exception arrives. For an agent that writes files or sends messages, a raised exception tells the caller nothing about what was done.
+
+The SDK's `error_handlers` option turns the exception into a result. The [docs](https://openai.github.io/openai-agents-python/running_agents/) list three keys, `"max_turns"`, `"model_refusal"` and `"invalid_final_output"`, for "a controlled final output instead of ending the run with the corresponding error." This is the handler I ran against the same fake model:
+
+```python
+from agents import Agent, Runner, RunErrorHandlerInput, RunErrorHandlerResult
+
+def on_max_turns(data: RunErrorHandlerInput[None]) -> RunErrorHandlerResult:
+    done = len(data.run_data.new_items)  # tool calls and outputs so far
+    return RunErrorHandlerResult(
+        final_output=f"Stopped at the turn limit after {done} items; narrow the request.",
+        include_in_history=False,  # default True stores the fallback in the session
+    )
+
+result = await Runner.run(
+    agent,  # defined elsewhere
+    "go",
+    max_turns=3,
+    error_handlers={"max_turns": on_max_turns},
+)
+print(result.final_output)
+# Stopped at the turn limit after 6 items; narrow the request.
+```
+
+The handler receives `run_data` with the new items, so it can report which tools ran. The `invalid_final_output` key matters if the agent has a structured `output_type`; the [structured outputs post](/structured-outputs-schema-subsets-llm-apis) covers why those schemas fail validation in the first place.
+
+## Claude's loop has no default limit, and budget is a soft cap
+
+The Claude Agent SDK ships with `max_turns` and `max_budget_usd` both unset: "Without limits, the loop runs until Claude finishes on its own." Hitting either returns a `ResultMessage` whose `result` field is absent, so the docs say to check the subtype first. This excerpt is from the [SDK's own example](https://code.claude.com/docs/en/agent-sdk/agent-loop#put-it-all-together):
+
+```ts
+if (message.type === "result") {
+  if (message.subtype === "success") {
+    console.log(`Done: ${message.result}`);
+  } else if (message.subtype === "error_max_turns") {
+    // Agent ran out of turns. Resume with a higher limit.
+    console.log(`Hit turn limit. Resume session ${sessionId} to continue.`);
+  } else if (message.subtype === "error_max_budget_usd") {
+    console.log("Hit budget limit.");
+  }
+}
+```
+
+The docs add a wrinkle that the table hides: a single-shot `query()` "yields the final result message, then raises an error", so code that only catches exceptions still sees a failure, though the cost and session ID have already been delivered. Every result subtype carries `total_cost_usd`, `usage`, `num_turns` and `session_id`, which is what makes "resume with a higher limit" possible. I did not run this SDK, since it needs a Claude API key; the behaviour above is quoted from the documentation.
+
+The budget cap is approximate by design. Claude Code compares spend with the cap "after model responses arrive", so "Spend can therefore pass the cap by up to the cost of that one response, plus anything that subagents still running at that moment spend before they stop." Subagent spend counts toward the total, and the documented enforcement needs Claude Code v2.1.217 or later.
+
+## What a limit does not cover
+
+A turn limit bounds iterations, not time, tokens per turn or tool side effects. A single turn can run a slow shell command or read a huge file, and context accumulates across turns. The Claude docs say that when the window fills, the SDK "summarizes older history", and warn that "specific instructions from early in the conversation may not be preserved", so persistent rules belong in `CLAUDE.md`. A loop that survives by compaction can drift from its original goal without ever hitting a limit.
+
+The limits also assume you wanted a loop. Anthropic's essay says agentic systems "often trade latency and cost for better task performance" and that finding the simplest solution "might mean not building agentic systems at all." If the steps are known in advance, a workflow with fixed code paths has no termination problem to solve.
+
+Caveats on this post's evidence: I ran the OpenAI behaviour against a scripted model, not a live one, so the counts show SDK mechanics rather than how often real models loop. The Microsoft behaviour comes from reading the source, and the Claude behaviour from its documentation. Defaults can change between releases, and the Microsoft figure already differs between two versions of the same documentation.
+
+## Set the limit, the failure path and the budget before launch
+
+Choose by what your caller needs when the loop does not finish:
+
+- **Pick the limit deliberately.** Do not inherit 10, 40 or none. Set `max_turns` from the longest legitimate run you have observed, plus margin.
+- **Decide what a stop returns.** With OpenAI, register an `error_handlers["max_turns"]` handler that reports completed tool calls. With Claude, branch on `subtype` and persist `session_id`. With Microsoft's client, remember that a normal return may be a forced no-tools answer.
+- **Cap spend separately from turns.** Use `max_budget_usd` with headroom for one extra response and any live subagents.
+- **Make tools idempotent.** Every contract above can stop after a tool has run.
