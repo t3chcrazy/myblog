@@ -1,0 +1,114 @@
+---
+title: "Agent loops: four SDKs, four ways of hitting the turn limit"
+slug: agent-loop-stop-conditions-sdk-defaults
+date: "2026-11-07"
+Category: AI
+dek: "Every agent SDK runs the same loop. The defaults differ: 10, 20, 1 or unlimited turns, and hitting the cap is an error, a normal return or a silent stop."
+tags: ["agents", "tool-calling", "llm-apis", "ai-sdk"]
+appliesTo: "AI SDK 7.0.164, @openai/agents 0.21.0, @anthropic-ai/sdk 1.6.0 (tool runner, beta), Claude Agent SDK 0.3.319"
+banner: "/banners/agent-loop-stop-conditions-sdk-defaults.png"
+bannerAlt: "Engraving of a clockwork automaton winding a long ribbon onto a spool with a hand crank."
+related: ["mcp-stateless-request-state-2026-07-28"]
+---
+
+In current tooling, "agentic" has a precise operational meaning: the model, not your code, decides when the work is finished. That makes termination the part of an agent you have to engineer, and the four loop implementations examined here disagree about it. A tool-calling loop is capped at 10 turns in the OpenAI Agents SDK, 20 in the Vercel AI SDK's `ToolLoopAgent`, 1 in its `generateText`, and nothing at all in Anthropic's tool runner and the Claude Agent SDK. What happens at the cap also differs: an exception, a normal return with empty text, a silent stop, or an error result with no answer. Tests against mocked models that keep requesting tools show each behaviour below.
+
+<Primer>
+
+**Assumes you know:** how LLM tool calling works (the model returns a tool call, your code runs it and sends the result back) and basic async JavaScript.
+
+**Key terms**
+
+- **Turn (or step):** one model call plus the execution of any tools it requested. SDKs count these differently, which matters for the caps below.
+- **Stop condition:** the rule that ends the loop. The model producing no tool call is the normal one; a turn cap or spend cap is the safety net.
+- **Tool runner:** Anthropic's SDK helper that runs the request, tool execution and retry cycle for you instead of a hand-written loop.
+- **Mock model:** a stand-in model object that returns scripted responses, used here to make a model request tools forever without network calls or cost.
+
+**Read first:** [Stateless MCP: where session state goes after the 2026-07-28 spec](/mcp-stateless-request-state-2026-07-28) covers a related pause-and-resume pattern in the protocol layer, and Anthropic's [Building effective agents](https://www.anthropic.com/engineering/building-effective-agents) is the usual starting point on the definition.
+
+</Primer>
+
+## "Agentic" means the model controls when the loop ends
+
+Anthropic's [Building effective agents](https://www.anthropic.com/engineering/building-effective-agents) (December 2024) draws the line this way: "Workflows are systems where LLMs and tools are orchestrated through predefined code paths," while agents "are systems where LLMs dynamically direct their own processes and tool usage." It adds that agents are "typically just LLMs using tools based on environmental feedback in a loop," and that "it's also common to include stopping conditions (such as a maximum number of iterations) to maintain control."
+
+OpenAI's [practical guide to building agents](https://cdn.openai.com/business-guides-and-resources/a-practical-guide-to-building-agents.pdf) reaches the same shape: "Agents are systems that independently accomplish tasks on your behalf," run by a loop "that lets agents operate until an exit condition is reached." Its listed exit conditions are "tool calls, a certain structured output, errors, or reaching a maximum number of turns."
+
+The definitions agree, so the useful differences are in the code paths the vendors leave to defaults. If the model controls the exit, a model that does not choose to exit is the failure to plan for. Each SDK answers that differently, and the answers are not interchangeable when a team ports an agent from one to another.
+
+## The defaults span 1 turn to unlimited
+
+The numbers below come from each project's documentation, cross-checked against the source of the installed package.
+
+| SDK (version) | Default cap | Where it is set | When the cap is reached |
+|---|---|---|---|
+| AI SDK `ToolLoopAgent` (7.0.164) | 20 steps | `stopWhen`, default `isStepCount(20)` | Returns normally |
+| AI SDK `generateText` / `streamText` (7.0.164) | 1 step | `stopWhen`, default `isStepCount(1)` | Returns normally |
+| OpenAI Agents SDK, JS (0.21.0) | 10 turns | `maxTurns`; `null` disables | Throws `MaxTurnsExceededError` |
+| Anthropic tool runner, TS (1.6.0, beta) | None | `max_iterations` | Loop ends, no error |
+| Claude Agent SDK (0.3.319) | None | `maxTurns`, `maxBudgetUsd` | Result with `error_max_turns`, no `result` text |
+
+The AI SDK's [loop control guide](https://ai-sdk.dev/docs/agents/loop-control) states that "By default, `ToolLoopAgent` stops after 20 steps" and that "`generateText` and `streamText` stop after one step by default." The OpenAI [running agents guide](https://openai.github.io/openai-agents-js/guides/running-agents/) lists the `maxTurns` default as 10, and the constant is [`DEFAULT_MAX_TURNS = 10`](https://github.com/openai/openai-agents-js/blob/main/packages/agents-core/src/runner/constants.ts) in the repository. Anthropic's [tool runner documentation](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-runner) says the runner "loops until Claude returns a message without a tool use, or until it reaches `max_iterations` ... if you set it." The Claude Agent SDK's [turns and budget table](https://code.claude.com/docs/en/agent-sdk/agent-loop#turns-and-budget) lists "No limit" for both `maxTurns` and `maxBudgetUsd`.
+
+One naming change affects copied code. AI SDK 7 renamed `stepCountIs` to `isStepCount`, and the [7.0 migration guide](https://ai-sdk.dev/docs/migration-guides/migration-guide-7-0) lists the rename. The guide does not say what happens to the old name; the 7.0.164 type declarations still export `isStepCount as stepCountIs`, so older snippets compile.
+
+## What each SDK does when a mock model keeps requesting tools
+
+The mock models in these tests answer every request with a tool call. Versions: AI SDK 7.0.164 (with its `MockLanguageModelV3`), `@openai/agents` 0.21.0, `@anthropic-ai/sdk` 1.6.0, Node 22.23.4.
+
+The AI SDK returns as if nothing were wrong. After 20 model calls the result had `finishReason` `"tool-calls"` and empty `text`:
+
+```ts
+import { ToolLoopAgent } from 'ai';
+
+const agent = new ToolLoopAgent({ model, tools }); // default stopWhen: isStepCount(20)
+const r = await agent.generate({ prompt: 'go' });
+// r.steps.length === 20, r.finishReason === 'tool-calls', r.text === ''
+```
+
+In 7.0.164 the library also logs a warning that "The tool loop stopped because it reached the default stopWhen condition, isStepCount(20)". An app that renders `r.text` shows a blank answer unless it checks `finishReason`.
+
+The OpenAI Agents SDK throws after the tenth model call (`Max turns (10) exceeded`). It also offers a recovery hook, documented as `errorHandlers.maxTurns`, that turns the failure into a final output:
+
+```ts
+import { run } from '@openai/agents';
+
+const result = await run(agent, 'go', {
+  maxTurns: 3,
+  errorHandlers: { maxTurns: () => ({ finalOutput: 'gave up' }) },
+});
+// result.finalOutput === 'gave up' after 3 model calls
+```
+
+The guide says the returned `finalOutput` must match the agent's `outputType`, which is worth remembering when the agent produces structured data (see [structured outputs across three APIs](/structured-outputs-schema-subsets-llm-apis)).
+
+Anthropic's runner stops without signalling anything. With `max_iterations: 3` the runner made 3 API requests, executed the tool 3 times, and resolved with a final message whose `stop_reason` was `"tool_use"`:
+
+```ts
+const final = await client.beta.messages
+  .toolRunner({ model, max_tokens: 1024, messages, tools, max_iterations: 3 })
+  .runUntilDone();
+if (final.stop_reason === 'tool_use') {
+  // the cap was hit: the last turn asked for a tool whose result was not sent back
+}
+```
+
+The Claude Agent SDK takes a fourth approach: it yields a `ResultMessage` whose subtype is `error_max_turns`, and per the [agent loop page](https://code.claude.com/docs/en/agent-sdk/agent-loop#handle-the-result) the `result` field is absent. A single-shot `query()` then raises after yielding it, so the error handling has to cover both the message and the exception.
+
+## A cap counts turns, not cost or progress
+
+A turn limit bounds the number of model calls but says nothing about how large each one is. Context accumulates over a session, so a late turn costs more than an early one. The Claude Agent SDK's `maxBudgetUsd` addresses that, with a stated caveat: the check runs after each response arrives, so "Spend can therefore pass the cap by up to the cost of that one response," plus anything still-running subagents spend before they stop.
+
+Two sharp edges turned up in the tests. First, "Max turns" is not one unit across SDKs. The Anthropic runner's `max_iterations` counts API requests, and the Claude Agent SDK says to "Count each turn with tool calls, plus one for the final text-only response", so a cap of N leaves N-1 working turns before the answer. Second, the tool runner's source guards the cap with a truthiness check, `this.#settings.max_iterations && this.#iterationCount >= ...` ([BetaToolRunner.ts](https://github.com/anthropics/anthropic-sdk-typescript/blob/main/src/lib/tools/BetaToolRunner.ts)). In a run with `max_iterations: 0` the loop was unbounded and only my own guard at 30 calls ended it. The docs do not mention this, so a config value that resolves to zero disables the limit instead of forbidding all iterations.
+
+None of this makes an agent the right default. Anthropic's own advice is to find "the simplest solution possible" and warns that this "might mean not building agentic systems at all." A fixed pipeline with one model call per stage needs no loop cap, and its failure modes are the ordinary ones.
+
+## Set the cap, the budget and the exit handler together
+
+For any production agent, treat termination as three separate decisions rather than one default:
+
+1. **Set the turn cap explicitly,** even where a default exists. `isStepCount(20)` and `maxTurns: 10` are library choices that can change between major versions, as the `stepCountIs` rename shows.
+2. **Add a spend or token cap** where the SDK has one (`maxBudgetUsd`), and leave headroom for the overshoot.
+3. **Handle the cap-hit outcome for your SDK:** check for `finishReason === 'tool-calls'` on the AI SDK, catch `MaxTurnsExceededError` or supply `errorHandlers.maxTurns` on the OpenAI SDK, check `stop_reason === 'tool_use'` on Anthropic's runner, and switch on the result subtype for the Claude Agent SDK.
+
+A test that points the agent at a mock model that requests a tool on every call takes a few lines per SDK, and it is an inexpensive way to confirm that the cap exists and that the caller notices when it fires.
