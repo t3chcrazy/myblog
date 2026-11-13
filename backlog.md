@@ -25,3 +25,4 @@ The blog pipeline's source of topics. See [decision](.scratch/wayfinder/tickets/
 - [x] Temporal in Node 26: what it fixes and where Date still leaks in
 - [x] Node.js goes annual: what the Node 27 alpha does to `latest` in CI and `engines` checks
 - [x] TypeScript 7 in practice: a split toolchain until the 7.1 API
+- [x] UIScene on iOS 27: what React Native 0.88 and Expo carry over
