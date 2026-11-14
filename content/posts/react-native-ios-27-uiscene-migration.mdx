@@ -1,0 +1,144 @@
+---
+title: "UIScene on iOS 27: what React Native 0.88 and Expo carry over"
+slug: react-native-ios-27-uiscene-migration
+date: "2026-11-13"
+Category: Mobile
+dek: "A SceneDelegate gets an app past Xcode 27's launch check. React Native 0.88 and Expo SDK 58 then rebuild launchOptions from only a URL and a user activity."
+tags: ["react-native", "ios", "expo", "mobile"]
+appliesTo: "React Native 0.88.1, Expo SDK 58 (expo 58.0.25), Xcode 27 / iOS 27 SDK"
+banner: "/banners/react-native-ios-27-uiscene-migration.png"
+bannerAlt: "Engraving of a theatre stage with an old wooden stage door bricked up at the left, a new curtained doorway at the right, and a stagehand in the foreground holding a ring of keys."
+---
+
+Apple's iOS 27 SDK requires the UIScene lifecycle, and apps built with Xcode 27 without it fail to launch. React Native 0.88 and Expo SDK 58 both ship a scene delegate, so the migration looks like a template diff. The part the docs underplay is data flow: under scenes, cold-start information arrives in `connectionOptions`, and both frameworks rebuild the old `launchOptions` dictionary from only a URL and a user activity. A library that still reads another launch key, or expects UIKit to call an `AppDelegate` method, gets nothing from the old path. A source scan of fourteen native packages for those patterns matched five.
+
+<Primer>
+
+**Assumes you know:** a React Native or Expo app with an `ios/` project, and the basics of `AppDelegate` and `Info.plist`.
+
+**Key terms**
+
+- **Scene:** UIKit's unit of visible UI. Under the scene lifecycle, the app delegate handles process events and a scene delegate handles each window's lifecycle.
+- **`launchOptions`:** the dictionary UIKit passes to `application(_:didFinishLaunchingWithOptions:)` describing why the app launched (a URL, a notification, a quick action).
+- **Connection options:** the `UIScene.ConnectionOptions` object UIKit passes to `scene(_:willConnectTo:options:)` for the same purpose under scenes.
+- **`ExpoAppDelegateSubscriber`:** Expo's protocol that lets modules and config plugins receive app delegate events without editing `AppDelegate.swift`.
+- **Continuous Native Generation (CNG):** Expo's workflow of regenerating the `ios/` directory with `expo prebuild` instead of committing it.
+
+**The story so far:** React Native's iOS template created the window in `AppDelegate`, and libraries hooked app events there or read `bridge.launchOptions`. Apple has logged a "will become an assert" warning for unmigrated apps since iOS 18.4.
+
+**Read first:** Apple's [TN3187: Migrating to the UIKit scene-based life cycle](https://developer.apple.com/documentation/technotes/tn3187-migrating-to-the-uikit-scene-based-life-cycle).
+
+</Primer>
+
+## Xcode 27 turns a warning into a launch failure
+
+Apple's [scene migration guide](https://developer.apple.com/documentation/uikit/transitioning-to-the-uikit-scene-based-life-cycle) states that from iOS 27, "apps built with the latest SDK must adopt the scene-based life cycle or they fail to launch." The trigger is the build, not the device: [TN3187](https://developer.apple.com/documentation/technotes/tn3187-migrating-to-the-uikit-scene-based-life-cycle) describes the requirement as applying "when building with the latest SDK." Apple's test for whether an app needs to migrate is whether `UIApplicationSceneManifest` is missing from `Info.plist` or the app delegate lacks `application(_:configurationForConnecting:options:)`.
+
+The cross-platform frameworks have each shipped a route. Expo's [SDK 58 changelog](https://expo.dev/changelog/sdk-58) is dated October 15, 2026 and moves React Native from 0.86 to 0.88. The [React Native 0.88 post](https://reactnative.dev/blog/2026/10/19/react-native-0.88#ios-scenedelegate-support) followed on October 19 and calls its support additive, keeping the `AppDelegate` path working. Flutter's [UIScene breaking-change page](https://docs.flutter.dev/release/breaking-changes/uiscenedelegate) says 3.41 migrates an unmodified `AppDelegate` automatically and that a custom one needs manual steps. That is a useful contrast: the React Native route has no auto-migration for hand-edited projects.
+
+The React Native and Expo routes differ in who owns the scene delegate, and that decides what you maintain.
+
+## Two scene delegates: the template's, and Expo's
+
+For a plain React Native app, the 0.88 [community template](https://github.com/react-native-community/template/blob/0.88-stable/template/ios/HelloWorld/SceneDelegate.swift) moves startup into the scene. Its `scene(_:willConnectTo:options:)` creates the window and calls a new `RCTReactNativeFactory` entry point, then forwards URLs and activities to `RCTLinkingManager`:
+
+```swift
+// react-native-community/template, 0.88-stable (excerpt)
+reactNativeFactory?.startReactNative(
+  withModuleName: "HelloWorld",
+  in: window,
+  connectionOptions: connectionOptions
+)
+
+func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+  RCTLinkingManager.scene(scene, openURLContexts: URLContexts)
+}
+
+func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+  RCTLinkingManager.scene(scene, continue: userActivity)
+}
+```
+
+The release notes list the migration as three steps: move the entry point to a `SceneDelegate`, forward the URL and user-activity callbacks, and add a `UIApplicationSceneManifest` key. They also set a limit: support is for a single scene, so `UIApplicationSupportsMultipleScenes` stays `false`.
+
+Expo apps do not use that class. Expo's [scene lifecycle guide](https://github.com/expo/fyi/blob/main/ios-scene-lifecycle.md) has `prebuild` generate a `SceneDelegate` that subclasses `ExpoAppSceneDelegate`, with `AppDelegate` conforming to `ExpoReactNativeFactoryProvider` so the scene can fetch the factory the app delegate built. If you use CNG and don't commit `ios/`, running `npx expo prebuild --clean` after upgrading generates the new files. Hand-managed projects diff against a scratch `prebuild`; bare apps that use Expo modules run `npx install-expo-modules@latest`. Expo's [upgrade post](https://expo.dev/blog/how-to-upgrade-to-sdk-58) adds one cleanup: remove `ios.enableSceneSupport` if you opted in on SDK 57.
+
+One sentence in Expo's guide conflicts with the React Native notes. It says "React Native core has not adopted the scene life cycle," while the 0.88 post ships core entry points for exactly that. The Expo source shows which applies to you: `ExpoAppSceneDelegate` starts React Native through the older `startReactNative(withModuleName:in:initialProperties:launchOptions:)` entry point, with launch options it builds itself.
+
+## UIKit stops calling the old hooks, and launchOptions is rebuilt
+
+Apple's guide is explicit that after adoption "UIKit no longer calls these `UIApplicationDelegate` methods, even if you keep them implemented", naming `applicationDidBecomeActive`, `applicationWillResignActive`, `applicationDidEnterBackground` and `applicationWillEnterForeground`. Expo's guide extends the list to `application(_:open:options:)`, `application(_:continue:restorationHandler:)` and the quick-action callback. Flutter's documentation adds a launch-order effect: Flutter calls plugins' launch callbacks later, during `scene(_:willConnectTo:options:)`, and their launch options "are `nil` after you migrate."
+
+![Cold-start flow under the scene lifecycle: UIKit calls the app delegate, which creates the factory, then the scene delegate receives connection options, and the framework rebuilds launchOptions from only the first URL and a user activity.](/diagrams/react-native-ios-27-uiscene-migration-1.svg)
+
+That second effect is what React Native has to paper over. A comment in Expo's source notes that `Linking.getInitialURL()` "only reads them from launch options," and other libraries read `bridge.launchOptions` too. So the frameworks reconstruct it. This is React Native 0.88.1's [conversion function](https://github.com/facebook/react-native/blob/0.88-stable/packages/react-native/Libraries/AppDelegate/RCTReactNativeFactory.mm), in full:
+
+```objc
+static NSDictionary *RCTConvertConnectionOptionsToLaunchOptions(UISceneConnectionOptions *connectionOptions)
+{
+  NSMutableDictionary *launchOptions = [NSMutableDictionary dictionary];
+
+  if (connectionOptions.URLContexts.count > 0) {
+    UIOpenURLContext *urlContext = connectionOptions.URLContexts.allObjects.firstObject;
+
+    if (urlContext.URL != nil) {
+      launchOptions[UIApplicationLaunchOptionsURLKey] = urlContext.URL;
+    }
+  }
+
+  if (connectionOptions.userActivities.count > 0) {
+    NSUserActivity *activity = connectionOptions.userActivities.allObjects.firstObject;
+
+    if (activity != nil) {
+      NSMutableDictionary *userActivityDict = [NSMutableDictionary dictionary];
+      userActivityDict[UIApplicationLaunchOptionsUserActivityTypeKey] = activity.activityType;
+      userActivityDict[@"UIApplicationLaunchOptionsUserActivityKey"] = activity;
+
+      launchOptions[UIApplicationLaunchOptionsUserActivityDictionaryKey] = userActivityDict;
+    }
+  }
+
+  return launchOptions;
+}
+```
+
+Two keys, first element only. The release notes say the same in prose: at launch, React Native "forwards only the first URL context or user activity." Expo's [`ExpoAppSceneDelegate`](https://github.com/expo/expo/blob/sdk-58/packages/expo/ios/Expo/ExpoAppSceneDelegate.swift) rebuilds the same two keys, restricting the activity to web-browsing ones, and adds something React Native's entry point does not: it forwards a cold-start `connectionOptions.shortcutItem` to the quick-action handler.
+
+## What the rebuild leaves out
+
+Apple's [`UIScene.ConnectionOptions`](https://developer.apple.com/documentation/uikit/uiscene/connectionoptions) carries more than a URL and an activity. It also has `shortcutItem` ("the user-selected action to perform") and `notificationResponse` ("a person's response to one of your app's notifications"). I searched the React Native 0.88.1 and Expo 58.0.25 iOS sources: neither references `notificationResponse`, and React Native's `AppDelegate` library never touches `shortcutItem`.
+
+Libraries that read the corresponding legacy launch keys are therefore worth checking. I unpacked fourteen native packages from npm (chosen for their notification, deep-link and quick-action code, not sampled at random) and scanned their iOS sources for launch-key reads, removed `AppDelegate` lifecycle methods, `openURL` and `continueUserActivity` entry points, and `keyWindow` or `UIScreen.main` uses. Five matched, including these:
+
+| Package (version) | Match | Why it needs a look |
+| --- | --- | --- |
+| `@react-native-community/push-notification-ios` 1.12.0 | `getInitialNotification` reads `bridge.launchOptions[UIApplicationLaunchOptionsRemoteNotificationKey]` | React Native's rebuilt dictionary has no such key |
+| `react-native-quick-actions` 0.3.13 | `setBridge:` reads `bridge.launchOptions[UIApplicationLaunchOptionsShortcutItemKey]` | Same, for a cold-start quick action |
+| `react-native-branch` 7.0.0 | exposes class method `+application:openURL:options:`, and reads `[UIApplication sharedApplication].keyWindow` | An app typically calls it from its own URL handling, and `keyWindow` is on the list Expo says to avoid |
+
+The other two matches, in `@react-native-firebase/messaging` 27.1.1 and `@notifee/react-native` 9.1.8, read a remote or local notification key from launch data or a notification's `userInfo`. These are leads, not verdicts: I could not run an iOS build here, so each match says where to test, not that the feature breaks. Expo's guide marks the safe path: `ExpoAppDelegateSubscriber` implementations "receive the same events as before," while "direct `UIApplicationDelegate` hooks do not fire."
+
+## Limits and open edges
+
+The migration changes more than launch. Under scenes the window is resizable, and the 0.88 notes say `Dimensions.get()` and `useWindowDimensions()` update with current values; Expo's [known issues](https://expo.dev/blog/how-to-upgrade-to-sdk-58) list `ScreenOrientation.lockAsync` as possibly having no effect while the app is resizable. Layout code that cached the window size at startup deserves a pass.
+
+Several constraints remain as of these releases. React Native 0.88 supports one scene. Expo SDK 58 [does not support macOS](https://expo.dev/changelog/sdk-58) until `react-native-macos` reaches at least 0.86. `ExpoAppSceneDelegate` is marked unavailable in app extensions and widget targets. And Expo's SDK 57 opt-in, `ios.enableSceneSupport`, needs `expo@57.0.23` or newer and refuses to edit an `AppDelegate.swift` that differs from the template, so a customised project must apply the changes by hand.
+
+The evidence here is source reading. The Apple, React Native and Expo statements are quoted from their own documentation and code, but I have not observed a cold-start notification or quick action on a device, and a library can compensate in code I did not scan.
+
+## Audit before the Xcode 27 build
+
+Treat the migration as two tasks: the template diff, then a search for launch-time dependencies. This scan lists the patterns above across `node_modules` (a starting point, not a guarantee):
+
+```bash
+grep -rEn --include='*.m' --include='*.mm' --include='*.swift' \
+  -e 'UIApplicationLaunchOptions(Remote|Local)NotificationKey' \
+  -e 'UIApplicationLaunchOptionsShortcutItemKey' \
+  -e 'func application(DidBecomeActive|WillResignActive|DidEnterBackground|WillEnterForeground)' \
+  -e '- \(void\)application(DidBecomeActive|WillResignActive|DidEnterBackground|WillEnterForeground)' \
+  -e 'application:\(UIApplication \*\)application (openURL|continueUserActivity)' \
+  -e 'UIApplication\.shared\.keyWindow|sharedApplication\]\.keyWindow|UIScreen\.main|\[UIScreen mainScreen\]' \
+  node_modules --exclude-dir=Pods --exclude-dir=Tests --exclude-dir=Example --exclude-dir=example
+```
+
+Run it, then sort each hit into one of three outcomes. A library that is an `ExpoAppDelegateSubscriber` needs nothing. A library whose method your `AppDelegate` calls, such as Branch's `openURL`, needs the call moved to your scene delegate. A library that reads a launch key for notifications or quick actions needs a device test of the cold-start path on an iOS 27 build, and an issue upstream if it fails. Do that before Xcode 27 becomes your release toolchain: a missing launch key is a nil lookup, which compiles cleanly.
