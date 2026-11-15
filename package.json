@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && (echo \"DIAG server/app:\"; ls -la .next/server/app | head -40; echo \"DIAG html count:\"; find .next -name \"*.html\" | head -20; echo \"DIAG output:\"; ls -la .next/output .next/output/static 2>&1 | head -30; echo \"DIAG pwd: $(pwd)\"; ls -la) ; pagefind --site .next/server/app --output-path public/pagefind",
+    "build": "next build && node scripts/pagefind.mjs",
     "start": "next start",
     "lint": "eslint",
     "prepare": "husky"
