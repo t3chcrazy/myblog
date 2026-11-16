@@ -26,3 +26,8 @@ The blog pipeline's source of topics. See [decision](.scratch/wayfinder/tickets/
 - [x] Node.js goes annual: what the Node 27 alpha does to `latest` in CI and `engines` checks
 - [x] TypeScript 7 in practice: a split toolchain until the 7.1 API
 - [x] UIScene on iOS 27: what React Native 0.88 and Expo carry over
+- [x] Next.js Cache Components by default: what the migration changes about where cache lives
+- [ ] Postgres 19 after release: what `REPACK CONCURRENTLY` and parallel autovacuum index vacuum change for operations
+- [ ] React 19.3 View Transitions and Fragment Refs: what is stable and what still needs a framework
+- [ ] Next.js 16.4 `next upgrade --agent` and Skills: how agent-driven framework upgrades work and where they fail
+- [ ] Vercel Runtime Cache vs. Data Cache unification: what changes for `fetch` and `unstable_cache` billing
