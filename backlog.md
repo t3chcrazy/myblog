@@ -26,3 +26,9 @@ The blog pipeline's source of topics. See [decision](.scratch/wayfinder/tickets/
 - [x] Node.js goes annual: what the Node 27 alpha does to `latest` in CI and `engines` checks
 - [x] TypeScript 7 in practice: a split toolchain until the 7.1 API
 - [x] UIScene on iOS 27: what React Native 0.88 and Expo carry over
+- [x] PostgreSQL 19's WAIT FOR LSN: what read-your-writes on async replicas still needs from the app
+- [ ] PostgreSQL 19 `REPACK (CONCURRENTLY)` vs. pg_repack: what moving bloat cleanup into core changes
+- [ ] Vite 8 and Rolldown 1.0: what the bundler swap breaks in plugin-heavy builds
+- [ ] CSS `text-box-trim` in every engine: replacing line-height and padding hacks
+- [ ] Android 17 on large screens: what the end of the orientation-lock opt-out means for React Native apps
+- [ ] Prompt caching across Claude, OpenAI and Gemini: what invalidates a cache, measured
