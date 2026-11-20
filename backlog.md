@@ -32,3 +32,7 @@ The blog pipeline's source of topics. See [decision](.scratch/wayfinder/tickets/
 - [ ] CSS `text-box-trim` in every engine: replacing line-height and padding hacks
 - [ ] Android 17 on large screens: what the end of the orientation-lock opt-out means for React Native apps
 - [ ] Prompt caching across Claude, OpenAI and Gemini: what invalidates a cache, measured
+- [x] Next.js Cache Components by default: what the migration changes about where cache lives
+- [ ] React 19.3 View Transitions and Fragment Refs: what is stable and what still needs a framework
+- [ ] Next.js 16.4 `next upgrade --agent` and Skills: how agent-driven framework upgrades work and where they fail
+- [ ] Vercel Runtime Cache vs. Data Cache unification: what changes for `fetch` and `unstable_cache` billing

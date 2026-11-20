@@ -1,0 +1,128 @@
+---
+title: "Next.js Cache Components: the migration changes where cache lives"
+slug: nextjs-cache-components-storage-migration
+date: "2026-11-16"
+Category: Web
+dek: "Cache Components becomes the Next.js default in 17. The build flags the syntax changes; it won't tell you that 'use cache' stops surviving restarts and deploys."
+tags: ["nextjs", "caching", "deployment", "serverless"]
+appliesTo: "Next.js 16.4.6 (Node.js 22, next start), Vercel Runtime Cache docs as of 2026-08"
+related: ["edge-vs-serverless-nextjs-deploy-target", "react-server-components-what-runs-where"]
+banner: "/banners/nextjs-cache-components-storage-migration.png"
+bannerAlt: "Engraving of a clerk in a long coat carrying a stack of ledgers beneath a stone archway beside a tall archive shelf, while a porter sweeps the floor nearby."
+---
+
+The Next.js team says [Cache Components will become the default in Next.js 17](https://nextjs.org/blog/next-16-4), and since 16.4 (October 2026) every `create-next-app` project has it on. The build tells you what to rewrite: route configs, synchronous time calls, empty `generateStaticParams`. It does not tell you that rewriting `fetch(..., { next: { revalidate } })` into a `'use cache'` function changes where the cached value lives, from a store that survives restarts and deploys to process memory scoped to one build. Measured on Next.js 16.4.6, one restart doubled the upstream calls for the same page. The docs do state the change, in a paragraph under the `fetch` section of the migration guide, after the mechanical rewrite.
+
+<Primer>
+
+**Assumes you know:** the Next.js App Router, `fetch` caching options, and what a serverless instance and a rolling deploy are.
+
+**Key terms**
+
+- **Cache Components:** the 16.x programming model enabled by `cacheComponents: true`. Caching is opt-in per function or component with the `'use cache'` directive, and request-time work streams into a prerendered static shell.
+- **Static shell:** the prerendered HTML for a route, with `<Suspense>` fallbacks where request-time content will arrive.
+- **Cache handler:** the storage backend behind a caching API. The default one for `'use cache'` is an in-memory LRU (least recently used) cache inside each Next.js process.
+- **Build ID:** the identifier `next build` generates for a version of your app. `'use cache'` includes it in every cache key.
+
+**The story so far:** before Cache Components, you cached with `fetch` options (`cache: 'force-cache'`, `next.revalidate`, `next.tags`), `unstable_cache`, and route-level configs such as `dynamic` and `revalidate`. Self-hosted, those entries were written to the Next.js server cache on local disk.
+
+**Read first:** [Edge vs. serverless for Next.js after Edge Runtime's deprecation](/edge-vs-serverless-nextjs-deploy-target) for the deploy-target choices this post assumes, and Next.js's [caching guide](https://nextjs.org/docs/app/getting-started/caching).
+
+</Primer>
+
+## The build catches the syntax, and it is strict
+
+Turning on the flag is a one-line change, and the build immediately starts rejecting the old model. On 16.4.6, a page that exports `dynamic = 'force-dynamic'` fails with `Route segment config "dynamic" is not compatible with nextConfig.cacheComponents. Please remove it.` The [migration guide](https://nextjs.org/docs/app/guides/migrating-to-cache-components#enable-cache-components) lists `dynamic`, `revalidate` and `fetchCache` as the segments that will error, and says `dynamicParams` and `runtime = 'edge'` are unsupported as well. A `generateStaticParams` that returns `[]` also errors, because the route must produce a non-empty static shell.
+
+The less obvious failure is time. A component that renders `new Date().toISOString()` builds cleanly without the flag and fails with it:
+
+```text
+Error: Route "/t": Next.js encountered the unstable value `new Date()` while prerendering.
+  - [dynamic] Render at request time by adding a dynamic data access (e.g. `await connection()`) before this call
+```
+
+The guide's incremental path lets you set `export const instant = false` on routes that aren't ready, but it says plainly that this [does not clear synchronous IO errors](https://nextjs.org/docs/app/guides/migrating-to-cache-components#adopting-incrementally). That held on 16.4.6: a page with `instant = false` and `new Date()` still failed the build. The documented fix builds and moves the call to request time:
+
+```tsx
+import { Suspense } from 'react'
+import { connection } from 'next/server'
+
+async function Now() {
+  await connection() // opts this subtree into request-time rendering
+  return <p>{new Date().toISOString()}</p>
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={<p>…</p>}>
+      <Now />
+    </Suspense>
+  )
+}
+```
+
+The build also prints `cacheComponents is enabled without a corresponding partialPrefetching option` until you set the second flag to `true` or `false`. Next.js's 16.4 post now treats [Partial Prefetching as part of the model](https://nextjs.org/blog/next-16-4#whats-new-in-cache-components). These are loud, local, fixable errors. The storage change is none of those.
+
+## The storage change the build can't see
+
+The [migration guide's `fetch` section](https://nextjs.org/docs/app/guides/migrating-to-cache-components#fetch-cache-options) shows the mechanical rewrite and then adds a paragraph: the `fetch` Data Cache "persists cached responses across deployments and across serverless instances," while `use cache` "defaults to in-memory storage, so its entries are discarded when the serverless instance is destroyed and are scoped to a single deployment." The [`use cache` reference](https://nextjs.org/docs/app/api-reference/directives/use-cache#runtime-caching-considerations) adds that the [cache key includes the build ID](https://nextjs.org/docs/app/api-reference/directives/use-cache#cache-keys), so "neither caching directive carries over to a new deploy."
+
+To see what that costs, I built the same dynamic route twice on 16.4.6 and counted requests to a local upstream. One variant used `fetch` with `next: { revalidate: 3600 }` and Cache Components off. The other wrapped the call in a `'use cache'` component with `cacheLife('hours')`. Each had `generateStaticParams` returning one id; I requested an unlisted id, which renders at request time, three times against `next start`.
+
+| After… | `fetch` + `revalidate` (flag off) | `'use cache'` (flag on) |
+| --- | --- | --- |
+| 3 requests to an unlisted id | 1 upstream call | 1 upstream call |
+| Restarting `next start` | 0 more | 1 more |
+| Rebuilding, then restarting | 0 more | 1 more |
+
+![Two lanes: a fetch with next.revalidate reads its entry back from disk in .next/cache and makes no new upstream call after a restart, while a use cache entry sits in process memory keyed by build ID and costs one new upstream call after a restart.](/diagrams/nextjs-cache-components-storage-migration-1.svg)
+
+Within a process the two behave the same. Across a restart or a build, the `fetch` entry is read from disk and the `use cache` entry is recomputed. The move happens at the rewrite, not at the flag: a plain `fetch` with `cache: 'force-cache'` and `next.revalidate`, left in place in a Cache Components app, also survived a restart (0 more calls). That matches the guide's statement that [`fetch` and `unstable_cache` keep working](https://nextjs.org/docs/app/guides/migrating-to-cache-components#or-migrate-by-hand) after the flag is on.
+
+One scope note on the numbers: this is a single local Node.js process with a retained `.next/cache`, so it shows the mechanism, not your platform's behavior. The page that was prerendered at build time was not affected, since the [docs say](https://nextjs.org/docs/app/api-reference/directives/use-cache#runtime-caching-considerations) build-time values "are still reused by later requests."
+
+## What each hosting target does with it
+
+The default handler is an in-memory LRU cache, per process ([`cacheHandlers` reference](https://nextjs.org/docs/app/api-reference/config/next-config-js/cacheHandlers#when-to-use-custom-cache-handlers)), sized by [`cacheMaxMemorySize`](https://nextjs.org/docs/app/api-reference/config/next-config-js/cacheMaxMemorySize), which defaults to 50 MB. Three consequences follow.
+
+- **Single self-hosted process:** runtime entries persist until restart, eviction or a new build. Your upstream sees one extra burst per deploy.
+- **Multiple instances or Kubernetes pods:** each keeps its own copy. The [self-hosting guide](https://nextjs.org/docs/app/guides/self-hosting#shared-cache) says the in-memory cache "is not shared across instances" and recommends `'use cache: remote'` with a custom handler.
+- **Serverless:** the `use cache` reference says entries "typically don't persist across requests." Setting `cacheMaxMemorySize: 0` [mimics that locally](https://nextjs.org/docs/app/api-reference/config/next-config-js/cacheMaxMemorySize): on the test route above, three requests then produced three upstream calls instead of one. It is a cheap way to see your upstream load before deploying.
+
+On Vercel, `use cache: remote` writes to Runtime Cache, but the platform's [Runtime Cache docs](https://vercel.com/docs/runtime-cache#how-a-new-deployment-affects-cached-data) say entries are "Not today" readable after a new deployment, because Next.js includes the build ID (or `deploymentId`) in the key. Those docs also say Next.js "is working on keeping `use cache: remote` entries readable across deployments," so check this before relying on either answer. Meanwhile `fetch` with `force-cache` and `unstable_cache` stay readable across deploys on the same platform. A custom `remote` handler for self-hosting is a small config change, shown here as the shape documented in the reference:
+
+```ts
+// next.config.ts (excerpt from the cacheHandlers reference)
+const nextConfig = {
+  cacheHandlers: {
+    default: require.resolve('./cache-handlers/default-handler.js'),
+    remote: require.resolve('./cache-handlers/remote-handler.js'),
+  },
+}
+```
+
+The handler itself is the work: it must drain a single-use stream, coordinate tags across instances through `refreshTags()` and `updateTags()`, and evict entries, none of which Next.js does for you.
+
+## Decide per cache, not per app
+
+The migration guide treats `unstable_cache` and `fetch` caching as optional to convert, so the useful question is which cache earns the move. A workable rule:
+
+1. **Shell content that changes per deploy at most** (marketing copy, docs, a CMS read for a static page): use `'use cache'`. Prerendering fills the entry at build time, and the shell is served from build output, so the storage question mostly disappears.
+2. **Runtime data with an expensive or rate-limited upstream** (a paid API, a slow database query): leave it on `fetch` or `unstable_cache`, or give `'use cache: remote'` a handler that survives deploys. The Vercel docs' own advice for data that must outlive a deploy is `fetch` with `force-cache`, `unstable_cache`, or `getCache` with keys you control.
+3. **Cheap upstreams** (under roughly 50 ms, per the [`use cache: remote` guidance](https://nextjs.org/docs/app/api-reference/directives/use-cache-remote)): in-memory is fine, and a remote lookup may cost more than it saves.
+
+This also explains why the guide routes everything through validation rather than a codemod: the caching decision is a data decision, and a codemod can't know your upstream's limits.
+
+## Pin the static guarantees with `ensureStatic`
+
+Next.js 16.4 added a guard for the opposite regression, where a dynamic component sneaks into a route that should stay prerendered. [`ensureStatic`](https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config/ensureStatic) takes `'shell'`, `'prefetch'` or `'navigation'`, each extending the static requirement through one more stage. It fails `next build`; it is not limited to the dev overlay. A page with `ensureStatic = 'navigation'` and a `cookies()` read behind `<Suspense>` failed on 16.4.6 with `Next.js encountered uncached or runtime data on a route that must be fully static`; the same page without the export built as a partial prerender.
+
+Two details from testing and the [guide](https://nextjs.org/docs/app/guides/keeping-pages-static): `'navigation'` on a dynamic route also requires an exported `generateStaticParams()` (the build said so), and `'shell'` has no effect without Partial Prefetching. Putting `'navigation'` on a root layout of a public site makes the whole app a regression test for accidental request-time rendering.
+
+## Where this evidence stops
+
+My measurements ran on one machine and one Node.js process; I did not deploy to Vercel or a multi-pod cluster, so the restart numbers describe the mechanism and the platform rows rest on the docs quoted above. Two other behavior changes sit outside this post's storage story but will bite on the same upgrade: the migration guide says routes are now kept alive with React's [`<Activity>`](https://react.dev/reference/react/Activity), whose hidden mode keeps state and re-creates effects, so `useState` values and form input no longer reset on navigation; and `runtime = 'edge'` is [unsupported](https://nextjs.org/docs/app/guides/migrating-to-cache-components#runtime--edge), which the edge-versus-serverless post covers. Next.js 17 had not shipped when this was written, so "default" is the team's stated plan, not a released behavior.
+
+## Before you flip the flag
+
+Run the app with `cacheMaxMemorySize: 0` and the flag on, and compare upstream request counts per deploy against the current build. For every `fetch` or `unstable_cache` call whose upstream cost matters, keep it where it is until you have a handler or platform storage whose cross-deploy behavior you have read. Move build-time shell content to `'use cache'` first, and add `ensureStatic` to routes that must never render per request.
