@@ -1,0 +1,169 @@
+---
+title: "PostgreSQL 19's WAIT FOR LSN leaves half of read-your-writes to you"
+slug: postgres-19-wait-for-lsn-read-your-writes
+date: "2026-11-19"
+Category: Backend
+dek: "WAIT FOR LSN makes a standby catch up before a read. Which LSN you capture, where the read runs and how long you wait are still the application's job."
+tags: ["postgres", "replication", "consistency", "performance"]
+appliesTo: "PostgreSQL 19 (tested on 19rc2), node-postgres 8.23.1, Node.js 22.23"
+banner: "/banners/postgres-19-wait-for-lsn-read-your-writes.png"
+bannerAlt: "Engraving of a bookkeeper at a tall desk with an open ledger, quill raised, as a messenger boy hurries through the doorway with a sealed envelope."
+related: ["serverless-postgres-connection-pooling"]
+---
+
+PostgreSQL 19, which the PostgreSQL Global Development Group [scheduled for general availability](https://www.postgresql.org/about/news/postgresql-19-rc-1-released-3409/) on 19 November 2026, adds a [`WAIT FOR LSN`](https://www.postgresql.org/docs/19/sql-wait.html) command that holds a session on a standby until the standby has replayed the primary's write-ahead log up to a given position. That gives applications that send reads to async replicas a server-side way to read their own writes. The command enforces only the position it is given. In tests against a 19rc2 primary and streaming standby, a target captured one statement too early returned `success` for a row that was not yet visible, a wait placed after a `SELECT` failed only when the standby was behind, and a wait sat behind a conflicting standby query until `max_standby_streaming_delay` cancelled that query. Each of those outcomes follows from a choice the application makes, and none of them shows up in a test environment without replication lag.
+
+<Primer>
+
+**Assumes you know:** what a primary and a read replica are, and roughly how PostgreSQL transactions and isolation levels work.
+
+**Key terms**
+
+- **WAL (write-ahead log):** the append-only log of every change PostgreSQL makes. A physical standby stays current by receiving the primary's WAL and replaying it.
+- **LSN (log sequence number):** a byte position in the WAL, written as two hex numbers such as `0/0306EE20`. Larger means later.
+- **Replay:** applying received WAL to the standby's data files. A change becomes visible to standby queries once its transaction's commit record has been replayed.
+- **Read-your-writes:** the guarantee that a client which has written a value will see that value, or a newer one, on its next read, even if the read is served by a replica.
+- **Hot standby conflict:** a case where WAL replay would remove data or take a lock that a running standby query still needs. The standby either delays replay or cancels the query.
+
+**The story so far:** before 19, applications either pinned a user to the primary for a fixed time after a write, or polled each replica's `pg_last_wal_replay_lsn()` and compared it with the write's position.
+
+**Read first:** [Serverless Postgres connections: what each pooling layer protects](/serverless-postgres-connection-pooling), for how transaction-mode poolers hand out server connections.
+
+</Primer>
+
+## WAIT moves the catch-up check from the application into the standby
+
+Read-your-writes on replicas has been an application-level feature until now. Rails' [automatic role switching](https://guides.rubyonrails.org/active_record_multiple_databases.html#activating-automatic-role-switching) uses a timer: after a write, the middleware sends that user's `GET` and `HEAD` requests to the writer for a `delay` window that defaults to two seconds, and the guide says to tune it "based on your database infrastructure". GitLab tracks positions instead. Its [load-balancing documentation](https://docs.gitlab.com/development/database/load_balancing/#primary-sticking) says it sticks a workload to the primary "until replicas have caught up", tracked in Redis as LSNs, with a 30-second expiry as the backstop. Its [`load_balancer.rb`](https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/database/load_balancing/load_balancer.rb) records the write position with `pg_current_wal_insert_lsn()`, and [`host.rb`](https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/database/load_balancing/host.rb) reads each replica's `pg_last_wal_replay_lsn()` to compare against it.
+
+`WAIT FOR LSN` replaces the polling half of the GitLab design. The standby blocks the session until replay reaches the target, then returns a one-row status. The default mode is `standby_replay`. The `standby_write` and `standby_flush` modes wait for WAL to be written or flushed on the standby without waiting for it to be applied, and `primary_flush` waits for local durability on a primary. Only `standby_replay` gives read-your-writes.
+
+![The application writes on the primary and reads pg_current_wal_insert_lsn after the commit, keeps that LSN with the user's session, then opens a transaction on the standby whose first statement is WAIT FOR LSN, and reads from the primary instead if the status is not success.](/diagrams/postgres-19-wait-for-lsn-read-your-writes-1.svg)
+
+It took three attempts to get the shape right. A stored procedure, `pg_wal_replay_wait()`, was committed and then [reverted in April 2024](https://git.postgresql.org/gitweb/?p=postgresql.git;a=commit;h=772faafca1b288c4dd66b7150a7831c27b768003) after review, committed again in the next cycle, and [reverted again in November 2024](https://git.postgresql.org/gitweb/?p=postgresql.git;a=commit;h=3a7ae6b3d91e0d011dba1eb8a29e1836c6a33c75) because "the stored procedure appears to need more effort than the utility statement to turn the backend into a 'snapshot-less' state." The [commit that added `WAIT FOR`](https://git.postgresql.org/gitweb/?p=postgresql.git;a=commit;h=447aae13b0305780e87cac7b0dd669db6fab3d9d) on 5 November 2025 gives the reason: a held snapshot "could prevent the replay of WAL records, implying a kind of self-deadlock," so "It's not possible to implement this as a function." That constraint explains most of the rules below.
+
+## The target LSN must be read after COMMIT, from the insert position
+
+The documentation's condition is precise: replay-mode waits give read-your-writes "provided that the target LSN is at or after the end of the relevant write transaction's `COMMIT` record on the primary." An LSN read inside the write transaction is before that record, and the standby can reach it without having applied the commit.
+
+The gap is easy to reproduce. With `recovery_min_apply_delay = '3s'` on the standby, which [delays only commit records](https://www.postgresql.org/docs/19/runtime-config-replication.html#GUC-RECOVERY-MIN-APPLY-DELAY) and replays everything else immediately, an LSN captured before `COMMIT` returns `success` while the row is still missing:
+
+```sql
+-- primary
+BEGIN;
+INSERT INTO movie VALUES (2001, 'Noir');
+SELECT pg_current_wal_insert_lsn();   -- 0/03037280
+COMMIT;
+
+-- standby, immediately afterwards
+WAIT FOR LSN '0/03037280' WITH (TIMEOUT '1s', NO_THROW);  -- success, 0.19 ms
+SELECT count(*) FROM movie WHERE id = 2001;               -- 0
+```
+
+The same insert in autocommit, with the LSN read in a second statement, timed out at one second; a second wait returned `success` about two seconds later, and the row was there. Autocommit alone does not fix it: `INSERT … RETURNING pg_current_wal_insert_lsn()` evaluates the function before its own commit, and in the same setup it also returned `success` for an invisible row. Any ORM hook that runs before the transaction commits has the same problem.
+
+The function matters as well. PostgreSQL exposes three primary-side positions, and the [admin functions reference](https://www.postgresql.org/docs/19/functions-admin.html#FUNCTIONS-ADMIN-BACKUP) defines the insert location as "the 'logical' end of the write-ahead log", the write location as what has left the server's buffers, and the flush location as what is on durable storage. With `synchronous_commit = on` they matched after each commit in testing. With it set to `off`, the commit returns before its WAL is written:
+
+```text
+synchronous_commit  insert       write        flush
+on                  0/09B6E508   0/09B6E508   0/09B6E508
+off                 0/09B6E5B8   0/09B6E508   0/09B6E508
+```
+
+A target taken from `pg_current_wal_lsn()` there would sit before the commit record. The `WAIT` page's own example uses `pg_current_wal_insert_lsn()` "given that `synchronous_commit` could be set to `off`", and GitLab's code made the same choice. The admin reference still describes the insert location as "made available primarily for server debugging purposes", which is the one place the documentation pulls in two directions; the `WAIT` page is the more specific guidance.
+
+## Wait first, on the same server, inside the same transaction
+
+`WAIT` returns when one standby has replayed the target. The guarantee belongs to that server, not to the pool. PgBouncer's [`host` setting](https://www.pgbouncer.org/config.html#host) accepts a comma-separated list, and with the default `load_balance_hosts = round-robin` each new server connection goes to the next host. In transaction pooling, an autocommit `WAIT` and an autocommit `SELECT` are two transactions and can land on two different standbys. Wrapping both in `BEGIN … COMMIT` pins them to one server connection.
+
+Inside that transaction, `WAIT` has to come first. The [notes](https://www.postgresql.org/docs/19/sql-wait.html) say it cannot run while the transaction holds a snapshot, and that a standby-mode wait is rejected if the session holds any lock and the target has not been reached. On 19rc2:
+
+```text
+BEGIN ISOLATION LEVEL REPEATABLE READ; SELECT …; WAIT FOR LSN …;
+ERROR:  WAIT cannot be executed while the current transaction holds a snapshot
+
+BEGIN; SELECT count(*) FROM t2; WAIT FOR LSN '<reached>';
+ success
+
+BEGIN; SELECT count(*) FROM t2; WAIT FOR LSN '<not yet reached>' WITH (TIMEOUT '100ms', NO_THROW);
+ERROR:  cannot wait for a standby LSN while holding locks
+HINT:  Release the locks, or execute WAIT before acquiring them.
+```
+
+The middle case is the dangerous one. At `READ COMMITTED`, a `SELECT` before `WAIT` keeps its `AccessShareLock` until the transaction ends, and the wait is allowed only because "a wait whose target has already been reached returns immediately". With no lag, as in most test setups, the code passes. Under lag in production the same code raises an error, and `NO_THROW` does not suppress it, because the documentation limits that option to the `timeout` and `not in recovery` outcomes. Any ORM or tenant-scoping hook that reads a table before the wait will hit this.
+
+## Replay stalls behind conflicting queries, so every wait needs a timeout
+
+`TIMEOUT` defaults to zero, which the documentation defines as waiting indefinitely. Replay does not advance at a steady rate. When replayed WAL conflicts with a running standby query, for example because the primary took an `ACCESS EXCLUSIVE` lock, which the [hot standby documentation](https://www.postgresql.org/docs/19/hot-standby.html#HOT-STANDBY-CONFLICT) says includes "both explicit `LOCK` commands and various DDL actions", the standby pauses replay until the query finishes or until [`max_standby_streaming_delay`](https://www.postgresql.org/docs/19/runtime-config-replication.html#GUC-MAX-STANDBY-STREAMING-DELAY) expires and cancels it. The default is 30 seconds.
+
+With the delay lowered to 5 s, one standby session holding a read on a table, and a `LOCK TABLE … IN ACCESS EXCLUSIVE MODE` plus insert committed on the primary, a `WAIT` with a 20-second timeout returned `success` after 4,991 ms. The reader was cancelled with "User was holding a relation lock for too long." On a default configuration, the same wait could have held its request for up to 30 seconds because of a query from someone else.
+
+The usable pattern is a short timeout, `NO_THROW`, and a fallback to the primary. This version ran against the 19rc2 pair with node-postgres 8.23.1 on Node.js 22.23, served from the replica normally, and fell back to the primary when the standby had a 2-second apply delay:
+
+```ts
+import pg from "pg";
+
+const primary = new pg.Pool({ host: "/tmp/pgdata", port: 5433, user: "postgres" });
+const replica = new pg.Pool({ host: "/tmp/pgdata", port: 5434, user: "postgres" });
+
+// Autocommit UPDATE, then read the insert position: the COMMIT record is behind it.
+async function setGenre(id: number, genre: string): Promise<string> {
+  const client = await primary.connect();
+  try {
+    await client.query("UPDATE movie SET genre = $1 WHERE id = $2", [genre, id]);
+    const { rows } = await client.query("SELECT pg_current_wal_insert_lsn() AS lsn");
+    return rows[0].lsn; // e.g. "0/09BF0500"; keep it with the user's session
+  } finally {
+    client.release();
+  }
+}
+
+const LSN = /^[0-9A-F]{1,8}\/[0-9A-F]{1,8}$/i;
+
+async function getGenre(id: number, lsn: string) {
+  if (!LSN.test(lsn)) throw new Error(`not an LSN: ${lsn}`);
+  const client = await replica.connect();
+  try {
+    await client.query("BEGIN");
+    // WAIT is a utility command and takes no bind parameters, hence the regex.
+    const wait = await client.query(
+      `WAIT FOR LSN '${lsn}' WITH (TIMEOUT '250ms', NO_THROW)`,
+    );
+    if (wait.rows[0].status === "success") {
+      const { rows } = await client.query("SELECT genre FROM movie WHERE id = $1", [id]);
+      await client.query("COMMIT");
+      return { from: "replica", genre: rows[0]?.genre };
+    }
+    await client.query("ROLLBACK"); // "timeout" or "not in recovery"
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+  const { rows } = await primary.query("SELECT genre FROM movie WHERE id = $1", [id]);
+  return { from: "primary", genre: rows[0]?.genre };
+}
+```
+
+`NO_THROW` also matters for the transaction: the documentation notes that returning a status "leaves an explicit transaction usable", where the error form would force a rollback.
+
+## Limits: timelines, promotions, and a command that takes no parameters
+
+**No bind parameters.** `WAIT FOR LSN $1` fails with `syntax error at or near "$1"` through node-postgres' extended protocol, so the LSN has to be interpolated. When it round-trips through a cookie or a job payload it is user-controlled input, which is why the snippet validates it before building the statement.
+
+**Promotion and timelines.** If the standby is promoted mid-wait, the command reports `not in recovery`, and the application "should re-evaluate whether the target LSN is still relevant." `WAIT` also "compares only the numeric LSN"; a cascading standby whose upstream is promoted can return `success` for a position on the old timeline. Applications that care have to check the timeline themselves.
+
+**Interruptions.** Some recovery conflicts terminate every backend on the standby, including waiting ones, so the fallback path has to cover a dropped connection as well as a timeout.
+
+**Per-user, not global.** Like the Rails and GitLab schemes, this gives one client its own writes. Another user reading the same row from a lagging replica still sees the old value. Making a commit visible on standbys before it returns is what [`synchronous_commit = remote_apply`](https://www.postgresql.org/docs/19/runtime-config-wal.html#GUC-SYNCHRONOUS-COMMIT) does, at the cost of "much larger commit delays", and only for the synchronous standbys selected by `synchronous_standby_names`.
+
+
+## A checklist for adopting it
+
+Teams already running a sticky-session scheme can swap in `WAIT` once every server in the replica pool runs 19 (the command does not exist on older standbys). The rules that held up in testing:
+
+1. Capture `pg_current_wal_insert_lsn()` in a separate statement after `COMMIT` returns, never inside the write transaction.
+2. Carry the LSN with the user's session or job payload, and validate it against `^[0-9A-F]{1,8}/[0-9A-F]{1,8}$` before interpolating it.
+3. On the standby, open a transaction and make `WAIT FOR LSN … WITH (TIMEOUT …, NO_THROW)` its first statement, ahead of any ORM preamble.
+4. Set the timeout from the request's latency budget, far below `max_standby_streaming_delay`, and fall back to the primary on any status other than `success`.
+5. Test with `recovery_min_apply_delay` set on a staging standby. It reproduces lag on demand, so an LSN captured too early or a wait placed after a read fails in staging instead of in production.
