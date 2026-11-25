@@ -1,0 +1,161 @@
+---
+title: "Android 17 on large screens: React Native's orientation locks go quiet"
+slug: android-17-large-screens-react-native
+date: "2026-11-25"
+Category: Mobile
+dek: "At targetSdk 37, Android ignores portrait locks on 600dp-wide screens. Expo's templates set one by default, and JS lock calls resolve without effect."
+tags: ["react-native", "android", "expo", "mobile"]
+appliesTo: "React Native 0.88.1, Expo SDK 58, expo-screen-orientation 58.0.4, react-native-screens 4.30.1, Android 17 (API 37)"
+related: ["react-native-android-16-edge-to-edge"]
+banner: "/banners/android-17-large-screens-react-native.png"
+bannerAlt: "Engraving of an empty ornate picture frame standing on an artist's easel, with a closed padlock resting beside it instead of holding it in place."
+---
+
+Android 17 removes the opt-out that let apps targeting API 36 keep their orientation and aspect-ratio locks on tablets and foldables, and Google Play will require API 37 for new apps and updates in August 2027. For a React Native app, the platform docs stress a risk the framework has mostly handled. Google warns about lost state from Activity recreation, but React Native's Android template already absorbs size changes without recreating the Activity. What changes is quieter: the portrait lock that Expo's project templates write into every new app stops applying on large screens, and the JavaScript orientation APIs keep resolving their promises while the system ignores them. The work lands in layout code that was written for a phone held upright, plus one configuration change the template does not cover.
+
+<Primer>
+
+**Assumes you know:** a React Native or Expo app with an `android/` project, and what `AndroidManifest.xml` and `targetSdkVersion` do.
+
+**Key terms**
+
+- **sw600dp:** a display whose smallest width (the shorter side, in density-independent pixels) is at least 600dp. Android's threshold for a "large screen": most tablets and unfolded foldables.
+- **Configuration change:** an event such as rotation, resizing or a display-density change. By default Android destroys and recreates the Activity to apply it.
+- **`android:configChanges`:** a manifest attribute listing the changes an Activity handles itself in `onConfigurationChanged()` instead of being recreated.
+- **Requested orientation:** the orientation an Activity asks for, through `android:screenOrientation` in the manifest or `setRequestedOrientation()` at runtime.
+- **Desktop windowing:** Android's free-form window mode on large screens, where users resize app windows like on a desktop OS.
+
+**The story so far:** Android 16 began ignoring these locks on large screens for apps targeting API 36, but let apps opt out with a manifest property.
+
+**Read first:** [React Native on Android 16: what edgeToEdgeEnabled still controls](/react-native-android-16-edge-to-edge), the previous targetSdk-driven change, and Google's [Android 17 behavior change page](https://developer.android.com/about/versions/17/changes/ff-restrictions-ignored).
+
+</Primer>
+
+## API 37 removes the opt-out Android 16 offered
+
+Android 16 introduced the rule; Android 17 makes it unconditional. Google's [Android 17 announcement](https://developer.android.com/blog/posts/prepare-your-app-for-the-resizability-and-orientation-changes-in-android-17) is direct: "No new changes have been introduced since Android 16, but the developer opt-out is no longer possible." On a display whose smaller dimension is at least 600dp, the system ignores `screenOrientation` and `setRequestedOrientation()` for the eight fixed values (`portrait`, `landscape` and their `reverse`, `sensor` and `user` variants), and ignores `resizeableActivity`, `minAspectRatio` and `maxAspectRatio` entirely. The [behavior change page](https://developer.android.com/about/versions/17/changes/ff-restrictions-ignored#implementation-details) adds `getRequestedOrientation()` to the list and says the rule applies "in full-screen and multi-window modes."
+
+The Android 16 escape hatch was a manifest property, `PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY`, and the [Android 16 behavior changes](https://developer.android.com/about/versions/16/behavior-changes-16#ignore-orientation) warned that it "won't apply when targeting API level 37." Even before API 37 it had gaps: Google's [compatibility mode guide](https://developer.android.com/guide/practices/device-compatibility-mode#opt_out) says that even with the opt-out, in desktop windowing "orientation restrictions are overridden," and users can still override an app's aspect ratio in Settings.
+
+React Native itself has not moved yet. The v0.88.1 [Gradle version catalog](https://github.com/facebook/react-native/blob/v0.88.1/packages/react-native/gradle/libs.versions.toml) sets `compileSdk = "37"` but `targetSdk = "36"`, so a fresh app still runs under Android 16 rules and the opt-out still works. The change arrives when a team bumps `targetSdkVersion` to 37, which Play's August 2027 deadline makes a matter of when, not whether.
+
+Three exceptions remain, per the behavior change page: screens below sw600dp, apps declaring `android:appCategory="game"`, and users who choose the app's own default in the system's aspect-ratio settings.
+
+## Expo's templates start every app with a portrait lock
+
+The plain React Native template does not lock orientation. Its [0.88 `AndroidManifest.xml`](https://github.com/react-native-community/template/blob/0.88-stable/template/android/app/src/main/AndroidManifest.xml) sets no `screenOrientation` on `MainActivity`. Expo's templates do. The SDK 58 [`expo-template-default` app.json](https://github.com/expo/expo/blob/sdk-58/templates/expo-template-default/app.json) ships `"orientation": "portrait"`, as do the `blank`, `blank-typescript` and `tabs` templates on the same branch. That is a key the [app config reference](https://docs.expo.dev/versions/latest/config/app/#orientation) describes as one that "locks your app to a specific orientation." During prebuild, the [`withOrientation` config plugin](https://github.com/expo/expo/blob/sdk-58/packages/@expo/config-plugins/src/android/Orientation.ts) writes it onto the main activity. Running the plugin from `@expo/config-plugins` 58.0.13 against the template's config shows the result:
+
+```js
+// node 22, @expo/config-plugins 58.0.13
+const { AndroidConfig } = require('@expo/config-plugins');
+const appJson = require('./app.json'); // expo-template-default 58.0.35
+
+const manifest = { manifest: { application: [{ $: {}, activity: [{
+  $: { 'android:name': '.MainActivity' },
+  'intent-filter': [{
+    action: [{ $: { 'android:name': 'android.intent.action.MAIN' } }],
+    category: [{ $: { 'android:name': 'android.intent.category.LAUNCHER' } }],
+  }],
+}] }] } };
+
+const out = AndroidConfig.Orientation.setAndroidOrientation(appJson.expo, manifest);
+console.log(out.manifest.application[0].activity[0].$);
+// { 'android:name': '.MainActivity', 'android:screenOrientation': 'portrait' }
+```
+
+At targetSdk 37 that attribute is inert on a Pixel Tablet or an unfolded Pixel Fold, and still honoured on the phone. An Expo app that never revisited the template default has been laid out for portrait only, and once it ships at API 37 it rotates with the device on large screens.
+
+## JavaScript orientation locks resolve, then do nothing
+
+Runtime locks fail the same way and leave less trace. In `expo-screen-orientation` 58.0.4, [`lockAsync`](https://github.com/expo/expo/blob/sdk-58/packages/expo-screen-orientation/android/src/main/java/expo/modules/screenorientation/ScreenOrientationModule.kt#L36) assigns `currentActivity.requestedOrientation` and returns. Nothing in that path reads the result back, so `await ScreenOrientation.lockAsync(...)` fulfils on a tablet whether or not the system applies the lock. The per-screen `orientation` option that React Navigation's [native stack documents](https://reactnavigation.org/docs/native-stack-navigator#orientation), and that Expo's docs recommend through Expo Router's `Stack.Screen`, ends in the same call: react-native-screens 4.30.1 maps `"portrait"` to [`SCREEN_ORIENTATION_SENSOR_PORTRAIT`](https://github.com/software-mansion/react-native-screens/blob/4.30.1/android/src/main/java/com/swmansion/rnscreens/Screen.kt#L361), one of the eight ignored values. `react-native-orientation-locker` 1.7.0, last published in April 2024, calls `setRequestedOrientation(SCREEN_ORIENTATION_PORTRAIT)` directly.
+
+Reading the lock back is no safer. `getOrientationLockAsync` in the same Expo module [reads `requestedOrientation`](https://github.com/expo/expo/blob/sdk-58/packages/expo-screen-orientation/android/src/main/java/expo/modules/screenorientation/ScreenOrientationModule.kt#L52), and Google lists `getRequestedOrientation()` among the APIs whose fixed values are ignored on large screens. A test that asserts the lock by reading it back measures the request, not what the user sees. Assert on window dimensions instead.
+
+Expo's [screen orientation docs](https://docs.expo.dev/versions/latest/sdk/screen-orientation/) carry a warning that "on iOS 27 and later, `requireFullScreen` no longer opts your app out of being resized, so it cannot reliably lock the screen orientation." As of November 2026 the page has no equivalent note for Android large screens. The two platforms have converged: on tablets, an orientation lock is a request the system may decline on either OS.
+
+## React Native's template absorbs resizing, except density
+
+Google's guidance centres on Activity recreation: rotation, folding and window resizing all destroy and rebuild the Activity by default, and scroll positions and form input go with it. React Native's template opts out of most of that. Its `MainActivity` declares `configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"`, which includes the four flags the [runtime changes guide](https://developer.android.com/guide/topics/resources/runtime-changes#handle-size-based) says disable recreation for size-based changes. A rotation or resize calls `onConfigurationChanged()`; [`ReactRootView`](https://github.com/facebook/react-native/blob/v0.88.1/packages/react-native/ReactAndroid/src/main/java/com/facebook/react/ReactRootView.java#L1000) emits new dimensions on layout, and `useWindowDimensions` re-renders with them.
+
+![Two paths through a configuration change in a React Native 0.88 app. A rotation, fold or window resize is listed in the template's configChanges, so the Activity survives, onConfigurationChanged fires and JavaScript receives new dimensions with React state intact. A density change, such as moving the window to an external display, is not listed, so the Activity is recreated, the React surface is stopped and restarted, and the component tree remounts from its root.](/diagrams/android-17-large-screens-react-native-1.svg)
+
+The list leaves out `density`, which the [manifest reference](https://developer.android.com/guide/topics/manifest/activity-element#config) defines as a change "such as when the user specifies a different display scale or a different display is now active." Google's runtime changes guide names "moving the app between displays with different screen densities (such as connected external monitors or the displays of a foldable device)" as a configuration change to test. Android 17 does [stop recreating activities by default](https://developer.android.com/guide/topics/resources/runtime-changes#android_17) for a handful of changes, such as keyboard and navigation, but density and size are not among them. When a density change happens, the Activity is recreated, and in React Native 0.88 [`ReactDelegate.onHostDestroy()`](https://github.com/facebook/react-native/blob/v0.88.1/packages/react-native/ReactAndroid/src/main/java/com/facebook/react/ReactDelegate.kt#L161) calls `unloadApp()`, which stops the React surface. The new Activity starts a fresh one. The JavaScript runtime survives, so module-level state and stores outside React persist, but `useState` and anything else held in the component tree start over.
+
+A short script finds both classes of problem in a manifest. It is a regex check, not an XML parser, and assumes attributes are on the `<activity>` tag itself:
+
+```js
+// audit-manifest.mjs: node audit-manifest.mjs android/app/src/main/AndroidManifest.xml
+import { readFileSync } from 'node:fs';
+
+const xml = readFileSync(process.argv[2], 'utf8');
+const IGNORED = new Set(['portrait', 'reversePortrait', 'sensorPortrait', 'userPortrait',
+  'landscape', 'reverseLandscape', 'sensorLandscape', 'userLandscape']);
+const SIZE_FLAGS = ['orientation', 'screenSize', 'smallestScreenSize', 'screenLayout'];
+const attr = (tag, name) => tag.match(new RegExp(`android:${name}="([^"]*)"`))?.[1];
+
+for (const [tag] of xml.matchAll(/<activity\b[^>]*>/g)) {
+  const name = attr(tag, 'name');
+  const orientation = attr(tag, 'screenOrientation');
+  if (orientation && IGNORED.has(orientation))
+    console.log(`${name}: screenOrientation="${orientation}" is ignored at sw600dp+`);
+  for (const a of ['resizeableActivity', 'minAspectRatio', 'maxAspectRatio'])
+    if (attr(tag, a)) console.log(`${name}: ${a} is ignored at sw600dp+`);
+  const changes = (attr(tag, 'configChanges') ?? '').split('|');
+  const missing = SIZE_FLAGS.filter((f) => !changes.includes(f));
+  if (missing.length) console.log(`${name}: recreated on resize (no ${missing.join(', ')})`);
+  if (!changes.includes('density'))
+    console.log(`${name}: recreated on density change (moving to another display)`);
+}
+if (xml.includes('PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY'))
+  console.log('PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY has no effect at targetSdk 37');
+```
+
+Against the unmodified 0.88.1 template manifest it prints one line, the density warning. With a portrait lock and the Android 16 opt-out added, it prints all three.
+
+## Layout code is where the remaining work sits
+
+With locks gone, every screen meets a landscape tablet and a resizable window. The [React Native `Dimensions` docs](https://reactnative.dev/docs/dimensions) name the usual bug: values "may change (e.g due to device rotation, foldable devices etc)", so code should avoid "caching the value (for example, using inline styles rather than setting a value in a `StyleSheet`)." The same page calls `useWindowDimensions` "the preferred API for React components." A `Dimensions.get('window')` at module scope, or a width baked into `StyleSheet.create`, is the first thing to grep for.
+
+Branch on window width, not on whether the device is a tablet. The sw600dp rule is about the display, and Google applies it in multi-window mode too, so a split-screen window on a tablet can be under 600dp wide while the lock is still ignored. Android's [window size classes](https://developer.android.com/develop/ui/compose/layouts/adaptive/use-window-size-classes) put the first two width breakpoints at 600dp and 840dp, and React Native's dimensions ["represent density-independent pixels"](https://reactnative.dev/docs/height-and-width#fixed-dimensions), so the classes map directly:
+
+```ts
+// Type-checked with TypeScript 5.9.3 against react-native 0.88.1
+import { useWindowDimensions } from 'react-native';
+
+export type WidthClass = 'compact' | 'medium' | 'expanded';
+
+export function widthClassFor(width: number): WidthClass {
+  if (width < 600) return 'compact';
+  if (width < 840) return 'medium';
+  return 'expanded';
+}
+
+// Re-renders on rotation, fold/unfold and window resize.
+export function useWidthClass(): WidthClass {
+  const { width } = useWindowDimensions();
+  return widthClassFor(width);
+}
+```
+
+Google's announcement lists the failures it sees most in apps that used to lock orientation: "skewed or misoriented camera previews, stretched layouts, inaccessible buttons, or loss of user state." Its fix for off-screen buttons, a scrollable container plus a maximum content width, translates to a `ScrollView` and a `maxWidth` style in React Native. Camera previews from native modules deserve a device test of their own.
+
+To reproduce the behaviour before bumping `targetSdkVersion`, enable the change on a debuggable build with the [compatibility framework](https://developer.android.com/guide/app-compatibility/test-debug#toggle): `adb shell am compat enable UNIVERSAL_RESIZABLE_BY_DEFAULT <package>`. Google's announcement recommends running it on the Pixel Tablet and Pixel Fold emulators.
+
+## Trade-offs: what not to do instead
+
+Three workarounds look tempting and each costs something.
+
+Declaring `android:appCategory="game"` exempts the app, but the [manifest reference](https://developer.android.com/guide/topics/manifest/application-element#appCategory) says categories cluster apps "when summarizing battery, network, or disk usage" and should be set only for "apps that are primarily games." Mislabelling a banking app to dodge a layout change misreports it everywhere else the category is read.
+
+Adding `density` to `configChanges` stops the remount, but Google's [runtime changes guide](https://developer.android.com/guide/topics/resources/runtime-changes#configuration-changes) warns against opting out as a quick fix: it "requires you to fulfill the promise of handling the change," and "it is impossible to entirely disable `Activity` recreation." Process death and other changes will still recreate the Activity, so state worth keeping belongs in persisted storage either way.
+
+Staying on targetSdk 36 with the opt-out buys time until Play's deadline, but desktop windowing already overrides orientation for opted-out apps, so a portrait-only layout can still be shown in landscape today.
+
+What the change costs is design and QA time: every screen needs a landscape and a wide layout that someone has looked at.
+
+Before the targetSdk 37 bump, work through this list:
+
+1. Run the audit script on `android/app/src/main/AndroidManifest.xml`; in Expo apps, check `orientation` in `app.json` and regenerate with `npx expo prebuild`.
+2. Grep for `lockAsync`, `orientation:` in navigator options, and `react-native-orientation-locker`, and treat each hit as a screen that will render in landscape.
+3. Replace module-scope `Dimensions.get` calls and widths in `StyleSheet.create` with `useWindowDimensions`.
+4. Enable `UNIVERSAL_RESIZABLE_BY_DEFAULT` on a Pixel Tablet emulator, then move the app to a second display and confirm what survives the remount.

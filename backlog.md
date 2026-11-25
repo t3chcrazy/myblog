@@ -30,7 +30,7 @@ The blog pipeline's source of topics. See [decision](.scratch/wayfinder/tickets/
 - [ ] PostgreSQL 19 `REPACK (CONCURRENTLY)` vs. pg_repack: what moving bloat cleanup into core changes
 - [ ] Vite 8 and Rolldown 1.0: what the bundler swap breaks in plugin-heavy builds
 - [ ] CSS `text-box-trim` in every engine: replacing line-height and padding hacks
-- [ ] Android 17 on large screens: what the end of the orientation-lock opt-out means for React Native apps
+- [x] Android 17 on large screens: what the end of the orientation-lock opt-out means for React Native apps
 - [ ] Prompt caching across Claude, OpenAI and Gemini: what invalidates a cache, measured
 - [x] Next.js Cache Components by default: what the migration changes about where cache lives
 - [ ] React 19.3 View Transitions and Fragment Refs: what is stable and what still needs a framework
