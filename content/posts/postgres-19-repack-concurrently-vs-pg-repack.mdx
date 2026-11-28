@@ -1,0 +1,130 @@
+---
+title: "PostgreSQL 19's REPACK (CONCURRENTLY) drops pg_repack's safety rails"
+slug: postgres-19-repack-concurrently-vs-pg-repack
+date: "2026-11-28"
+Category: Backend
+dek: "Built-in repacking saves an extension, but in tests it queued readers behind its swap lock and emptied a table for an older snapshot. pg_repack did neither."
+tags: ["postgres", "performance", "consistency", "replication"]
+appliesTo: "PostgreSQL 19.0, pg_repack 1.5.3 and master (f9c5ef5)"
+banner: "/banners/postgres-19-repack-concurrently-vs-pg-repack.png"
+bannerAlt: "Engraving of a workman carrying a tall stack of books toward a full bookcase while a woman beside it keeps reading, undisturbed."
+---
+
+PostgreSQL 19, [released on 19 November 2026](https://www.postgresql.org/docs/19/release-19.html), lists `REPACK (CONCURRENTLY)` first among its highlights: a built-in way to rewrite a bloated table without blocking reads and writes, which until now meant installing pg_repack. The documentation covers which tables qualify. It does not set the core command beside the tool it replaces, and the differences are operational. In tests against 19.0, core `REPACK` sat in the lock queue for ten seconds behind a long reader, stalling a primary-key lookup for the whole wait; pg_repack, on the same server and table, never held readers for more than a second. A snapshot opened before the core command saw the table as empty afterwards, while pg_repack waited for that snapshot to finish. Moving to core removes an extension from the upgrade path and adds three jobs for whoever schedules the maintenance: bounding the swap-lock wait, keeping older snapshots away from the run, and repacking one table at a time.
+
+<Primer>
+
+**Assumes you know:** what table bloat is, how PostgreSQL MVCC leaves dead row versions behind, and roughly what table-level locks do.
+
+**Key terms**
+
+- **ACCESS EXCLUSIVE / SHARE UPDATE EXCLUSIVE:** the strongest table lock, which blocks even `SELECT`, and the lock `VACUUM` takes, which allows reads and writes but blocks DDL and other maintenance.
+- **Lock queue:** PostgreSQL grants table locks in arrival order, so a waiting `ACCESS EXCLUSIVE` request blocks every later request on that table, including plain reads.
+- **Logical decoding:** reading row-level changes back out of the write-ahead log (WAL) through a replication slot, the mechanism behind logical replication.
+- **Replica identity:** the columns PostgreSQL writes to WAL to identify a row on `UPDATE` and `DELETE`; usually the primary key, optionally a unique index or the full row (`FULL`).
+- **Snapshot:** the set of transactions a query treats as committed. Under `REPEATABLE READ`, a transaction keeps the snapshot from its first statement.
+
+**The story so far:** `VACUUM FULL` and `CLUSTER` rewrote tables under `ACCESS EXCLUSIVE` for the whole run, so online cleanup came from extensions: pg_repack, using triggers, and pg_squeeze, using logical decoding.
+
+**Read first:** the [`REPACK` reference page](https://www.postgresql.org/docs/19/sql-repack.html).
+
+</Primer>
+
+## Core REPACK captures changes from WAL instead of a trigger
+
+The two tools solve the same problem with different capture mechanisms. pg_repack, as its [documentation describes](https://reorg.github.io/pg_repack/#details), installs a trigger that copies every insert, update and delete into a log table, builds the new table, replays the log and swaps the two tables in the system catalogs. It takes `ACCESS EXCLUSIVE` briefly during setup and again at the swap.
+
+Core `REPACK (CONCURRENTLY)` is, in the commit's words, "heavily based on" pg_squeeze, whose author, Antonin Houska, designed the feature and wrote most of its code. The [commit that added it](https://www.postgresql.org/message-id/E1w9q43-003HZV-0T@gemulon.postgresql.org) describes the design: copy the table under `SHARE UPDATE EXCLUSIVE` from an MVCC snapshot, open a replication slot at that snapshot, and have a background worker decode concurrent changes into a stash that is applied "just before swapping the relfilenodes". `ACCESS EXCLUSIVE` is needed only at the swap.
+
+![Side by side, pg_repack and core REPACK (CONCURRENTLY) each copy rows under SHARE UPDATE EXCLUSIVE, but pg_repack logs changes with a trigger, waits for transactions open when it started and retries its swap lock in one-second attempts, while core decodes changes from WAL through a temporary slot, does not wait for old snapshots and makes one swap-lock request that blocks new readers while it waits.](/diagrams/postgres-19-repack-concurrently-vs-pg-repack-1.svg)
+
+The WAL-based design puts requirements on the server that a trigger does not. The command [refuses to run](https://www.postgresql.org/docs/19/sql-repack.html#SQL-REPACK-NOTES-ON-CONCURRENTLY) when `max_repack_replication_slots` has no free slot; that setting [defaults to 5 and needs a restart](https://www.postgresql.org/docs/19/runtime-config-replication.html#GUC-MAX-REPACK-REPLICATION-SLOTS) to change. The [source](https://github.com/postgres/postgres/blob/REL_19_0/src/backend/commands/repack.c#L980) also rejects `wal_level = minimal` and registers a dynamic background worker, which counts against `max_worker_processes`. Queried mid-run on 19.0, the server showed:
+
+```text
+slot_name       | slot_type | plugin   | temporary
+pg_repack_12580 | logical   | pgrepack | t
+
+effective_wal_level = logical
+```
+
+With the default `wal_level = replica`, PostgreSQL 19 [raises the effective WAL level to `logical`](https://www.postgresql.org/docs/19/runtime-config-wal.html#GUC-WAL-LEVEL) when the first logical slot appears and lowers it when the last is dropped. On the test server, it read `logical` until the next checkpoint after the repack finished. Disk use matches pg_repack: free space for a second copy of the table and its indexes. On a test table with 75% of its rows deleted, the rewrite took 488 MB of heap and 56 MB of indexes down to 123 MB and 14 MB in 1.1 seconds, under a 400-transactions-per-second pgbench load whose slowest transaction took 220 ms.
+
+## Eligibility is narrower than pg_repack's
+
+pg_repack [requires](https://reorg.github.io/pg_repack/#requirements) a primary key or a unique index on a `NOT NULL` column, and refuses temporary tables. Core `CONCURRENTLY` adds more conditions, listed in the [reference page](https://www.postgresql.org/docs/19/sql-repack.html#SQL-REPACK-NOTES-ON-CONCURRENTLY): no unlogged tables, no partitioned parents, nothing inside a transaction block, and no tables without a primary key or index-based replica identity. Running each case on 19.0:
+
+```sql
+REPACK (CONCURRENTLY) nopk;
+-- ERROR:  ... DETAIL:  Relation "nopk" has no identity index.
+REPACK (CONCURRENTLY) fullri;     -- has a primary key, REPLICA IDENTITY FULL
+-- ERROR:  ... DETAIL:  This operation does not support tables with REPLICA IDENTITY FULL.
+REPACK (CONCURRENTLY) parted;
+-- ERROR:  REPACK (CONCURRENTLY) is not supported for partitioned tables
+-- HINT:  Consider running the command on individual partitions.
+REPACK (CONCURRENTLY);
+-- ERROR:  REPACK (CONCURRENTLY) requires an explicit table name
+```
+
+The `REPLICA IDENTITY FULL` refusal is the one most likely to surprise. The documentation's wording ("lacks a primary key and index-based replica identity") reads as if a primary key is enough, but [`repack.c`](https://github.com/postgres/postgres/blob/REL_19_0/src/backend/commands/repack.c#L1048) rejects `FULL` regardless, with the comment "FULL is not yet supported". Some change-data-capture setups use `FULL` so that consumers receive whole old rows; pg_repack handles those tables because it needs only the key.
+
+Two more limits apply to busy tables. The command fails if "more than about 104 million rows are concurrently updated or deleted" during the run, and it "might fail to complete" if another session runs DDL on the table. pg_repack instead [blocks DDL](https://reorg.github.io/pg_repack/#ddl-commands) on the target while it works.
+
+## At the swap, core waits in the lock queue while pg_repack retries
+
+The difference that matters most in production is how each tool asks for `ACCESS EXCLUSIVE`. Core `REPACK` issues one lock request and waits. The [progress documentation](https://www.postgresql.org/docs/19/progress-reporting.html#REPACK-PHASES) says the `catch-up` phase "also covers waiting for the ACCESS EXCLUSIVE lock needed to swap the files, so a command blocked by a conflicting lock stays in this phase." While it waits, every later query on the table queues behind it.
+
+To measure the effect, one session opened a transaction, read the table and held its `ACCESS SHARE` lock for 15 seconds. `REPACK (CONCURRENTLY)` started a second later, finished its copy, and queued. A single-row lookup by primary key, sent four seconds into the run, took **10,058 ms**: it waited for the reader to commit and then for the repack to swap.
+
+pg_repack's [`lock_exclusive()`](https://github.com/reorg/pg_repack/blob/f9c5ef5994a41be1074c7161d1092f85ecb80720/bin/pg_repack.c#L2013) loops instead. Each attempt sets `lock_timeout` to `Min(1000, i * 100)` milliseconds, gives up and retries, so a waiting request never blocks the queue for more than a second at a time. After `--wait-timeout` (60 seconds by default) it cancels conflicting queries, and after twice that it terminates their sessions, unless `--no-kill-backend` tells it to [skip the table](https://reorg.github.io/pg_repack/#reorg-options). In the same scenario on 19.0, the same lookup took between 620 and 995 ms on each of four tries.
+
+Setting `lock_timeout` on the core command bounds the stall but throws the work away. With `SET lock_timeout = '2s'`, the run failed after 2.8 seconds with `canceling statement due to lock timeout`, while waiting for `AccessExclusiveLock`, and rolled back the finished copy. The alternative is to rebuild pg_repack's escalation outside the command: a watchdog that finds the repack waiting in `catch-up` and signals whatever blocks it.
+
+```sql
+-- Run every second or so (e.g. \watch 1) while REPACK (CONCURRENTLY) runs.
+SELECT b.pid AS blocker, a.state,
+       CASE WHEN a.state LIKE 'idle in transaction%'
+            THEN pg_terminate_backend(b.pid)
+            ELSE pg_cancel_backend(b.pid) END AS signalled
+FROM pg_stat_progress_repack p
+JOIN pg_locks l
+  ON l.pid = p.pid AND NOT l.granted
+ AND l.locktype = 'relation' AND l.relation = p.relid
+ AND l.mode = 'AccessExclusiveLock'
+CROSS JOIN LATERAL unnest(pg_blocking_pids(p.pid)) AS b(pid)
+JOIN pg_stat_activity a ON a.pid = b.pid
+WHERE p.phase = 'catch-up'
+  AND now() - l.waitstart > interval '2 seconds';
+```
+
+With it running, the repack finished in 3.7 seconds and the lookup waited 2.4 seconds. An idle-in-transaction session holds its locks until it ends, so cancelling does nothing there; the watchdog terminates those sessions instead, which is what pg_repack does after twice its timeout. Whether a two-second stall and a killed session are acceptable is a per-table decision, but it should be made before the run, not discovered during it.
+
+## A snapshot older than the run sees an empty table
+
+`REPACK (CONCURRENTLY)` is not MVCC-safe. The [MVCC caveats page](https://www.postgresql.org/docs/19/mvcc-caveats.html) puts it with `TRUNCATE` and table-rewriting `ALTER TABLE`: after it commits, the table "will appear empty to concurrent transactions, if they are using a snapshot taken before the command committed", provided they had not touched the table before it started. Plain `REPACK`, `VACUUM FULL` and `CLUSTER` are not on that list.
+
+The test: a `REPEATABLE READ` transaction reads an unrelated table, which fixes its snapshot, then sleeps while the 1,000-row table is rewritten, then counts it.
+
+| Rewrite during the sleep | Rows the older snapshot sees |
+| --- | --- |
+| `REPACK (CONCURRENTLY) t` | 0 |
+| `REPACK t` | 1,000 |
+| `VACUUM FULL t` | 1,000 |
+| `pg_repack -t t` | 1,000 |
+
+pg_repack avoids it on purpose. At the start of a run it [records](https://github.com/reorg/pg_repack/blob/f9c5ef5994a41be1074c7161d1092f85ecb80720/bin/pg_repack.c#L76) the virtual transaction IDs of every open transaction, and before the swap it loops, printing `Waiting for 1 transactions to finish`, until all of them have ended. Core's only wait, at startup, covers transactions that hold a transaction ID, and a read-only snapshot holds none.
+
+The workload this hits is `pg_dump`. Thom Brown [reported to pgsql-hackers](http://www.mail-archive.com/pgsql-hackers@lists.postgresql.org/msg240184.html) in September that a dump overlapping a concurrent repack wrote the table's `COPY` header with no rows and exited successfully; with plain `REPACK` or `VACUUM FULL` the same sequence dumped all 1,000 rows. The thread proposed documenting the case or having `pg_dump` detect the rewrite. Neither had shipped in 19.0: its `pg_dump` page does not mention `REPACK`. Long reporting transactions and logical-replication initial syncs share the exposure.
+
+## One run at a time, and the fixes are recent
+
+Core runs serialize. The commit listed, among its loose ends, that "only one REPACK process can be running at any one time on the whole system". The 19 documentation still says the `initializing` phase waits for transactions holding an ID, "This includes any other REPACK CONCURRENTLY, which holds a transaction ID until it finishes." Started half a second after a repack of a 3-million-row table, a repack of a 1,000-row table sat in `initializing` and finished alongside the large one, after 3.6 seconds. The same rule means any long write transaction delays the start. pg_repack leaves other pg_repack sessions out of its wait list: run the same way, its repack of the small table finished in 23 ms while the large one was still running.
+
+The code is also new. In September, a stress test found that a concurrent `VACUUM FULL` of the TOAST table could make the repack silently drop updates to TOASTed columns; the [fix](http://www.mail-archive.com/pgsql-committers@lists.postgresql.org/msg49352.html), which locks the TOAST table early, is in the 19.0 source. pg_repack's position is weaker on paper: no tagged release supports 19. The [1.5.3 documentation](https://reorg.github.io/pg_repack/#requirements) lists support through 18, and the last tag is from October 2025. Its master branch merged [PostgreSQL 19 support](https://github.com/reorg/pg_repack/pull/483) in May, saying "No significant code changes are required"; built from master, it compiled against 19.0 and ran every pg_repack test in this post. Where extensions come from a vendor or distribution package, the missing tag decides availability more than the code does.
+
+On a larger table, the core command held up. Hubert Lubaczewski [repacked a 19 GB table](https://www.depesz.com/2026/04/21/waiting-for-postgresql-19-add-concurrently-option-to-repack/) with 80% of its rows deleted in about 66 seconds during the beta, while a session inserting twice a second saw a worst case of 63 ms.
+
+## Choosing per table
+
+Use core `REPACK (CONCURRENTLY)` when the table has a primary key or index replica identity and is not `FULL`, when nothing holds long transactions against it, and when the run will not overlap `pg_dump` or long reports. Before each run, check `pg_stat_activity` for old `xact_start` values, confirm a free slot under `max_repack_replication_slots`, and run the watchdog above or an equivalent in your scheduler. Repack tables one at a time.
+
+Keep pg_repack, built from master or from your vendor's package once one ships, for `REPLICA IDENTITY FULL` tables, for databases where backups or reports run during the maintenance window, and anywhere a bounded lock wait with automatic escalation matters more than having one fewer extension to upgrade.
